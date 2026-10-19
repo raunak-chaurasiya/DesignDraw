@@ -6,6 +6,7 @@ import {
   ArrowDownToLine,
   Sliders,
   Type as TypeIcon,
+  X,
 } from 'lucide-react';
 import {
   STROKE_COLORS,
@@ -54,26 +55,35 @@ export default function PropertiesPanel({
           <Sliders size={14} className="text-[#827fe2]" />
           {selectedElement ? `${selectedElement.type.toUpperCase()} STYLES` : 'DEFAULT STYLES'}
         </span>
-        {selectedElement && (
-          <div className="flex items-center gap-1">
-            <button
-              onClick={onDuplicate}
-              title="Duplicate (Ctrl+D)"
-              className={`p-1.5 rounded-lg transition-colors ${
-                isDarkMode ? 'hover:bg-[#2f2f3a] text-neutral-300' : 'hover:bg-neutral-100 text-neutral-600'
-              }`}
-            >
-              <Copy size={14} />
-            </button>
-            <button
-              onClick={onDelete}
-              title="Delete (Del)"
-              className={`p-1.5 rounded-lg transition-colors hover:bg-red-500/20 text-red-400 hover:text-red-300`}
-            >
-              <Trash2 size={14} />
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-1">
+          {selectedElement && (
+            <>
+              <button
+                onClick={onDuplicate}
+                title="Duplicate (Ctrl+D)"
+                className={`p-1.5 rounded-lg transition-colors ${
+                  isDarkMode ? 'hover:bg-[#2f2f3a] text-neutral-300' : 'hover:bg-neutral-100 text-neutral-600'
+                }`}
+              >
+                <Copy size={14} />
+              </button>
+              <button
+                onClick={onDelete}
+                title="Delete (Del)"
+                className="p-1.5 rounded-lg transition-colors hover:bg-red-500/20 text-red-400 hover:text-red-300"
+              >
+                <Trash2 size={14} />
+              </button>
+            </>
+          )}
+          <button
+            onClick={() => setIsOpen(false)}
+            title="Close styles"
+            className="p-1.5 rounded-lg hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
+          >
+            <X size={15} />
+          </button>
+        </div>
       </div>
 
       <div className="space-y-4 text-xs">

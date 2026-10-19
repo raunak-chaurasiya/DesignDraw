@@ -6,6 +6,8 @@ import ZoomControls from './components/ZoomControls';
 import MenuModal from './components/MenuModal';
 import ExportModal from './components/ExportModal';
 import HelpModal from './components/HelpModal';
+import IntroCard from './components/IntroCard';
+import { Analytics } from "@vercel/analytics/react";
 import { TOOLS, DEFAULT_STYLE } from './constants';
 import {
   isPointInElement,
@@ -18,96 +20,8 @@ import { findNearestAnchor, updateConnectedArrows } from './utils/binding';
 import { EraserEffectManager } from './utils/eraserEffects';
 import { exportToJson } from './utils/export';
 
-// Initial welcoming diagram elements
-const INITIAL_ELEMENTS = [
-  {
-    id: 'el-welcome-rect',
-    type: 'rectangle',
-    x: 100,
-    y: 120,
-    width: 320,
-    height: 100,
-    strokeColor: '#6965db',
-    backgroundColor: '#343a40',
-    strokeWidth: 2,
-    strokeStyle: 'solid',
-    fillStyle: 'hachure',
-    roughness: 1.2,
-    seed: 42,
-    opacity: 100,
-  },
-  {
-    id: 'el-welcome-text',
-    type: 'text',
-    x: 125,
-    y: 145,
-    text: 'Welcome to DesignDraw! 🎨\nDraw, design & create diagrams',
-    fontSize: 22,
-    fontFamily: "'Patrick Hand', cursive",
-    strokeColor: '#ffffff',
-    opacity: 100,
-  },
-  {
-    id: 'el-arrow-1',
-    type: 'arrow',
-    x1: 420,
-    y1: 170,
-    x2: 580,
-    y2: 170,
-    startBinding: { elementId: 'el-welcome-rect', anchor: 'right' },
-    endBinding: { elementId: 'el-diamond-1', anchor: 'left' },
-    strokeColor: '#f08c00',
-    strokeWidth: 3,
-    strokeStyle: 'solid',
-    roughness: 1.2,
-    seed: 108,
-    opacity: 100,
-  },
-  {
-    id: 'el-diamond-1',
-    type: 'diamond',
-    x: 580,
-    y: 110,
-    width: 130,
-    height: 120,
-    strokeColor: '#2f9e44',
-    backgroundColor: '#d3f9d8',
-    strokeWidth: 2,
-    strokeStyle: 'solid',
-    fillStyle: 'hachure',
-    roughness: 1.2,
-    seed: 888,
-    opacity: 100,
-  },
-  {
-    id: 'el-diamond-text',
-    type: 'text',
-    x: 615,
-    y: 155,
-    text: 'Export\nJPG 🚀',
-    fontSize: 20,
-    fontFamily: "'Patrick Hand', cursive",
-    strokeColor: '#212529',
-    opacity: 100,
-  },
-  {
-    id: 'el-sticky-1',
-    type: 'sticky',
-    x: 770,
-    y: 90,
-    width: 220,
-    height: 160,
-    strokeColor: '#f59f00',
-    backgroundColor: '#fff3bf',
-    strokeWidth: 1.5,
-    text: '💡 Tip:\nClick ☰ top-left to Export as JPG!\nUse shortcuts: V, R, D, O, A, P, T',
-    fontSize: 18,
-    fontFamily: "'Patrick Hand', cursive",
-    textColor: '#212529',
-    seed: 777,
-    opacity: 100,
-  },
-];
+// Start with a clean whiteboard
+const INITIAL_ELEMENTS = [];
 
 export default function App() {
   const canvasRef = useRef(null);
@@ -118,6 +32,9 @@ export default function App() {
   const [zoom, setZoom] = useState(1);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [showGrid, setShowGrid] = useState(true);
+
+  // Intro Welcome Overlay State (auto-dismisses when user selects any tool/shape or taps canvas)
+  const [showIntro, setShowIntro] = useState(true);
 
   // Tool & Elements State
   const [activeTool, setActiveTool] = useState(TOOLS.SELECT);
@@ -140,14 +57,40 @@ export default function App() {
   const eraserFxRef = useRef(new EraserEffectManager());
   const [animFrame, setAnimFrame] = useState(0);
 
+  // Synchronous refs to prevent any closure staleness or dropped frames on mobile touch events
+  const actionRef = useRef('none');
+  const currentElementRef = useRef(null);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const elementsRef = useRef(elements);
+  elementsRef.current = elements;
+  const activeToolRef = useRef(activeTool);
+  activeToolRef.current = activeTool;
+  const isLockedRef = useRef(isLocked);
+  isLockedRef.current = isLocked;
+  const currentStyleRef = useRef(currentStyle);
+  currentStyleRef.current = currentStyle;
+  const panRef = useRef(pan);
+  panRef.current = pan;
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+
   // Inline Text Editor State
   const [editingText, setEditingText] = useState(null); // { id, x, y, text, isNew, fontSize, fontFamily, color }
 
-  // Modals
+  // Modals & Panels (Style panel closed by default on mobile so it doesn't obstruct screen)
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
-  const [isPropertiesOpen, setIsPropertiesOpen] = useState(true);
+  const [isPropertiesOpen, setIsPropertiesOpen] = useState(
+    typeof window !== 'undefined' ? window.innerWidth > 768 : false
+  );
+
+  // Select tool and dismiss intro automatically
+  const handleSelectTool = (tool) => {
+    setActiveTool(tool);
+    activeToolRef.current = tool;
+    setShowIntro(false);
+  };
 
   // Track space key for panning
   const [isSpacePressed, setIsSpacePressed] = useState(false);
@@ -477,16 +420,24 @@ export default function App() {
     }
 
     const { x, y } = getCanvasCoords(e.clientX, e.clientY);
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
     setDragStart({ x: e.clientX, y: e.clientY });
+
+    const activeTool = activeToolRef.current;
+    const currentStyle = currentStyleRef.current;
+    const zoom = zoomRef.current;
+    const elements = elementsRef.current;
 
     // 1. Pan mode: Hand tool or Space pressed or middle click
     if (activeTool === TOOLS.HAND || isSpacePressed || e.button === 1) {
+      actionRef.current = 'panning';
       setAction('panning');
       return;
     }
 
     // 2. Eraser mode
     if (activeTool === TOOLS.ERASER) {
+      actionRef.current = 'erasing';
       setAction('erasing');
       eraserFxRef.current.setCursor(x, y);
       eraserFxRef.current.addTrailPoint(x, y);
@@ -494,6 +445,7 @@ export default function App() {
       if (hit) {
         eraserFxRef.current.createBurst(x, y, 18);
         const updated = elements.filter((el) => el.id !== hit.id);
+        elementsRef.current = updated;
         pushHistory(updated);
       }
       return;
@@ -505,6 +457,7 @@ export default function App() {
       if (selectedElement) {
         const handle = getHitResizeHandle(x, y, selectedElement, zoom);
         if (handle) {
+          actionRef.current = 'resizing';
           setAction('resizing');
           setResizeHandle(handle.type);
           return;
@@ -522,9 +475,11 @@ export default function App() {
 
       if (hitElement) {
         setSelectedElementId(hitElement.id);
+        actionRef.current = 'moving';
         setAction('moving');
       } else {
         setSelectedElementId(null);
+        actionRef.current = 'selecting';
         setAction('selecting');
         setSelectionBox({ x1: x, y1: y, x2: x, y2: y });
       }
@@ -567,13 +522,19 @@ export default function App() {
         seed: Math.floor(Math.random() * 100000),
         opacity: 100,
       };
-      pushHistory([...elements, newSticky]);
+      const updated = [...elements, newSticky];
+      elementsRef.current = updated;
+      pushHistory(updated);
       setSelectedElementId(newSticky.id);
-      if (!isLocked) setActiveTool(TOOLS.SELECT);
+      if (!isLockedRef.current) {
+        setActiveTool(TOOLS.SELECT);
+        activeToolRef.current = TOOLS.SELECT;
+      }
       return;
     }
 
     // 6. Shape / Line / Pencil Drawing
+    actionRef.current = 'drawing';
     setAction('drawing');
 
     let startX = x;
@@ -612,12 +573,17 @@ export default function App() {
       seed: Math.floor(Math.random() * 100000),
       opacity: currentStyle.opacity,
     };
+    currentElementRef.current = newElement;
     setCurrentElement(newElement);
   };
 
   // Mouse Move Handler
   const handleMouseMove = (e) => {
     const { x, y } = getCanvasCoords(e.clientX, e.clientY);
+    const activeTool = activeToolRef.current;
+    const currentAction = actionRef.current;
+    const zoom = zoomRef.current;
+    const elements = elementsRef.current;
 
     // Update eraser cursor position
     if (activeTool === TOOLS.ERASER) {
@@ -627,82 +593,89 @@ export default function App() {
     }
 
     // Pan canvas
-    if (action === 'panning') {
-      const dx = e.clientX - dragStart.x;
-      const dy = e.clientY - dragStart.y;
+    if (currentAction === 'panning') {
+      const dx = e.clientX - dragStartRef.current.x;
+      const dy = e.clientY - dragStartRef.current.y;
+      dragStartRef.current = { x: e.clientX, y: e.clientY };
       setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
-      setDragStart({ x: e.clientX, y: e.clientY });
       return;
     }
 
     // Eraser drag
-    if (action === 'erasing') {
+    if (currentAction === 'erasing') {
       eraserFxRef.current.addTrailPoint(x, y);
       const hit = elements.find((el) => isPointInElement(x, y, el, 14 / zoom));
       if (hit) {
         eraserFxRef.current.createBurst(x, y, 16);
         const updated = elements.filter((el) => el.id !== hit.id);
+        elementsRef.current = updated;
         setElements(updated);
       }
       return;
     }
 
     // Marquee selection
-    if (action === 'selecting' && selectionBox) {
+    if (currentAction === 'selecting' && selectionBox) {
       setSelectionBox((prev) => ({ ...prev, x2: x, y2: y }));
       return;
     }
 
     // Drawing new shape
-    if (action === 'drawing' && currentElement) {
-      if (currentElement.type === TOOLS.PENCIL) {
-        setCurrentElement((prev) => ({
-          ...prev,
-          points: [...prev.points, { x, y }],
-        }));
-      } else if (currentElement.type === TOOLS.LINE || currentElement.type === TOOLS.ARROW) {
+    if (currentAction === 'drawing' && currentElementRef.current) {
+      let updated;
+      const cur = currentElementRef.current;
+
+      if (cur.type === TOOLS.PENCIL) {
+        updated = {
+          ...cur,
+          points: [...cur.points, { x, y }],
+        };
+      } else if (cur.type === TOOLS.LINE || cur.type === TOOLS.ARROW) {
         // Snap end tip to nearest anchor of target shape
         const nearAnchor = findNearestAnchor(
           x,
           y,
           elements,
-          currentElement.startBinding?.elementId,
+          cur.startBinding?.elementId,
           28
         );
 
         if (nearAnchor) {
-          setCurrentElement((prev) => ({
-            ...prev,
+          updated = {
+            ...cur,
             x2: nearAnchor.x,
             y2: nearAnchor.y,
             endBinding: { elementId: nearAnchor.elementId, anchor: nearAnchor.anchor },
-          }));
+          };
           setHoveredAnchor(nearAnchor);
         } else {
-          setCurrentElement((prev) => ({
-            ...prev,
+          updated = {
+            ...cur,
             x2: x,
             y2: y,
             endBinding: null,
-          }));
+          };
           setHoveredAnchor(null);
         }
       } else {
         // Rectangle, diamond, ellipse
-        setCurrentElement((prev) => ({
-          ...prev,
-          width: x - prev.x,
-          height: y - prev.y,
-        }));
+        updated = {
+          ...cur,
+          width: x - cur.x,
+          height: y - cur.y,
+        };
       }
+
+      currentElementRef.current = updated;
+      setCurrentElement(updated);
       return;
     }
 
     // Moving selected element
-    if (action === 'moving' && selectedElementId) {
-      const dx = (e.clientX - dragStart.x) / zoom;
-      const dy = (e.clientY - dragStart.y) / zoom;
-      setDragStart({ x: e.clientX, y: e.clientY });
+    if (currentAction === 'moving' && selectedElementId) {
+      const dx = (e.clientX - dragStartRef.current.x) / zoom;
+      const dy = (e.clientY - dragStartRef.current.y) / zoom;
+      dragStartRef.current = { x: e.clientX, y: e.clientY };
 
       let movedShape = null;
 
@@ -740,12 +713,13 @@ export default function App() {
 
       // Automatically move connected arrows and lines with this shape!
       const finalElements = updateConnectedArrows(updatedElements, movedShape);
+      elementsRef.current = finalElements;
       setElements(finalElements);
       return;
     }
 
     // Resizing element
-    if (action === 'resizing' && selectedElement && resizeHandle) {
+    if (currentAction === 'resizing' && selectedElement && resizeHandle) {
       if (selectedElement.type === 'line' || selectedElement.type === 'arrow') {
         let newX1 = selectedElement.x1;
         let newY1 = selectedElement.y1;
@@ -782,21 +756,20 @@ export default function App() {
           }
         }
 
-        setElements((prev) =>
-          prev.map((el) =>
-            el.id === selectedElement.id
-              ? {
-                  ...el,
-                  x1: newX1,
-                  y1: newY1,
-                  x2: newX2,
-                  y2: newY2,
-                  startBinding: newStartBinding,
-                  endBinding: newEndBinding,
-                }
-              : el
-          )
+        const updatedLine = {
+          ...selectedElement,
+          x1: newX1,
+          y1: newY1,
+          x2: newX2,
+          y2: newY2,
+          startBinding: newStartBinding,
+          endBinding: newEndBinding,
+        };
+        const updatedElements = elements.map((el) =>
+          el.id === selectedElement.id ? updatedLine : el
         );
+        elementsRef.current = updatedElements;
+        setElements(updatedElements);
         return;
       }
 
@@ -822,15 +795,16 @@ export default function App() {
         el.id === selectedElement.id ? updatedShape : el
       );
       const finalElements = updateConnectedArrows(updatedElements, updatedShape);
+      elementsRef.current = finalElements;
       setElements(finalElements);
       return;
     }
 
     // Highlight snap anchor points when hovering over shapes with arrow or line tool
-    if (action === 'none' && (activeTool === TOOLS.ARROW || activeTool === TOOLS.LINE)) {
+    if (currentAction === 'none' && (activeTool === TOOLS.ARROW || activeTool === TOOLS.LINE)) {
       const nearAnchor = findNearestAnchor(x, y, elements, null, 28);
       setHoveredAnchor(nearAnchor);
-    } else if (action === 'none' && hoveredAnchor) {
+    } else if (currentAction === 'none' && hoveredAnchor) {
       setHoveredAnchor(null);
     }
   };
@@ -838,38 +812,47 @@ export default function App() {
   // Mouse Up Handler
   const handleMouseUp = () => {
     setHoveredAnchor(null);
-    if (action === 'drawing' && currentElement) {
+    const activeAct = actionRef.current;
+    const drawnEl = currentElementRef.current;
+
+    if (activeAct === 'drawing' && drawnEl) {
       let isValid = true;
-      if (currentElement.type === TOOLS.PENCIL) {
-        isValid = currentElement.points.length > 1;
-      } else if (currentElement.type === TOOLS.LINE || currentElement.type === TOOLS.ARROW) {
-        isValid = Math.hypot(currentElement.x2 - currentElement.x1, currentElement.y2 - currentElement.y1) > 4;
+      if (drawnEl.type === TOOLS.PENCIL) {
+        isValid = drawnEl.points.length > 1;
+      } else if (drawnEl.type === TOOLS.LINE || drawnEl.type === TOOLS.ARROW) {
+        isValid = Math.hypot(drawnEl.x2 - drawnEl.x1, drawnEl.y2 - drawnEl.y1) > 4;
       } else {
-        isValid = Math.abs(currentElement.width) > 4 || Math.abs(currentElement.height) > 4;
+        isValid = Math.abs(drawnEl.width) > 4 || Math.abs(drawnEl.height) > 4;
       }
 
       if (isValid) {
-        const nextElements = [...elements, currentElement];
+        const nextElements = [...elementsRef.current, drawnEl];
+        elementsRef.current = nextElements;
         pushHistory(nextElements);
-        setSelectedElementId(currentElement.id);
+        setSelectedElementId(drawnEl.id);
       }
+      currentElementRef.current = null;
       setCurrentElement(null);
-      if (!isLocked) setActiveTool(TOOLS.SELECT);
+      if (!isLockedRef.current) {
+        setActiveTool(TOOLS.SELECT);
+        activeToolRef.current = TOOLS.SELECT;
+      }
     }
 
-    if (action === 'moving' || action === 'resizing' || action === 'erasing') {
-      pushHistory(elements);
+    if (activeAct === 'moving' || activeAct === 'resizing' || activeAct === 'erasing') {
+      pushHistory(elementsRef.current);
     }
 
-    if (action === 'selecting' && selectionBox) {
+    if (activeAct === 'selecting' && selectionBox) {
       // Find element inside selection box
-      const hit = elements.find((el) => isElementInBox(el, selectionBox));
+      const hit = elementsRef.current.find((el) => isElementInBox(el, selectionBox));
       if (hit) {
         setSelectedElementId(hit.id);
       }
       setSelectionBox(null);
     }
 
+    actionRef.current = 'none';
     setAction('none');
     setResizeHandle(null);
   };
@@ -939,6 +922,122 @@ export default function App() {
       }));
     }
   };
+
+  // Touch support for mobile phones and tablets
+  const handleMouseDownRef = useRef(handleMouseDown);
+  handleMouseDownRef.current = handleMouseDown;
+  const handleMouseMoveRef = useRef(handleMouseMove);
+  handleMouseMoveRef.current = handleMouseMove;
+  const handleMouseUpRef = useRef(handleMouseUp);
+  handleMouseUpRef.current = handleMouseUp;
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    let initialTouchDist = null;
+    let initialTouchCenter = null;
+
+    const onTouchStart = (e) => {
+      e.preventDefault();
+      setShowIntro(false);
+
+      if (e.touches.length === 1) {
+        const t = e.touches[0];
+        handleMouseDownRef.current({
+          clientX: t.clientX,
+          clientY: t.clientY,
+          button: 0,
+        });
+      } else if (e.touches.length >= 2) {
+        // If 2 or more fingers, cancel any 1-finger drawing in progress and enter pinch/pan
+        if (actionRef.current === 'drawing') {
+          currentElementRef.current = null;
+          setCurrentElement(null);
+          actionRef.current = 'none';
+          setAction('none');
+        }
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        initialTouchDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        initialTouchCenter = {
+          x: (t1.clientX + t2.clientX) / 2,
+          y: (t1.clientY + t2.clientY) / 2,
+        };
+      }
+    };
+
+    const onTouchMove = (e) => {
+      e.preventDefault();
+
+      if (e.touches.length === 1) {
+        const t = e.touches[0];
+        handleMouseMoveRef.current({
+          clientX: t.clientX,
+          clientY: t.clientY,
+        });
+      } else if (e.touches.length >= 2 && initialTouchDist && initialTouchCenter) {
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        const currentDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        const currentCenter = {
+          x: (t1.clientX + t2.clientX) / 2,
+          y: (t1.clientY + t2.clientY) / 2,
+        };
+
+        const zoomDelta = currentDist / initialTouchDist;
+        initialTouchDist = currentDist;
+
+        const dx = currentCenter.x - initialTouchCenter.x;
+        const dy = currentCenter.y - initialTouchCenter.y;
+        initialTouchCenter = currentCenter;
+
+        setZoom((prevZoom) => {
+          const nextZ = Math.min(4.0, Math.max(0.15, prevZoom * zoomDelta));
+          zoomRef.current = nextZ;
+          return nextZ;
+        });
+        setPan((prevPan) => {
+          const nextP = { x: prevPan.x + dx, y: prevPan.y + dy };
+          panRef.current = nextP;
+          return nextP;
+        });
+      }
+    };
+
+    const onTouchEnd = (e) => {
+      e.preventDefault();
+      if (e.touches.length === 0) {
+        initialTouchDist = null;
+        initialTouchCenter = null;
+        handleMouseUpRef.current();
+      }
+    };
+
+    const onTouchCancel = (e) => {
+      e.preventDefault();
+      initialTouchDist = null;
+      initialTouchCenter = null;
+      if (actionRef.current === 'drawing') {
+        currentElementRef.current = null;
+        setCurrentElement(null);
+      }
+      actionRef.current = 'none';
+      setAction('none');
+    };
+
+    canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+    canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+    canvas.addEventListener('touchend', onTouchEnd, { passive: false });
+    canvas.addEventListener('touchcancel', onTouchCancel, { passive: false });
+
+    return () => {
+      canvas.removeEventListener('touchstart', onTouchStart);
+      canvas.removeEventListener('touchmove', onTouchMove);
+      canvas.removeEventListener('touchend', onTouchEnd);
+      canvas.removeEventListener('touchcancel', onTouchCancel);
+    };
+  }, []);
 
   // Keyboard Shortcuts Handler
   useEffect(() => {
@@ -1101,10 +1200,12 @@ export default function App() {
       {/* Top Floating Toolbar */}
       <Toolbar
         activeTool={activeTool}
-        setActiveTool={setActiveTool}
+        setActiveTool={handleSelectTool}
         isLocked={isLocked}
         setIsLocked={setIsLocked}
         isDarkMode={isDarkMode}
+        onToggleProperties={() => setIsPropertiesOpen((prev) => !prev)}
+        isPropertiesOpen={isPropertiesOpen}
       />
 
       {/* Top Left Menu Button & Dropdown */}
@@ -1177,7 +1278,7 @@ export default function App() {
           <span>Export JPG</span>
         </button>
       </div>
-
+          
       {/* Main HTML5 Canvas */}
       <canvas
         ref={canvasRef}
@@ -1281,6 +1382,17 @@ export default function App() {
         onClose={() => setIsHelpOpen(false)}
         isDarkMode={isDarkMode}
       />
+
+      {/* Welcome Intro Screen - Auto-dismisses when any shape is selected */}
+      <IntroCard
+        visible={showIntro && elements.length === 0}
+        onSelectTool={handleSelectTool}
+        onDismiss={() => setShowIntro(false)}
+        isDarkMode={isDarkMode}
+      />
+
+      {/* Vercel Analytics */}
+      <Analytics />
     </div>
   );
 }

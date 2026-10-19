@@ -13,6 +13,7 @@ import {
   Type,
   StickyNote,
   Eraser,
+  Palette,
 } from 'lucide-react';
 import { TOOLS } from '../constants';
 
@@ -36,21 +37,24 @@ export default function Toolbar({
   isLocked,
   setIsLocked,
   isDarkMode = true,
+  onToggleProperties,
+  isPropertiesOpen,
 }) {
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-40 select-none">
+    <div className="fixed top-3 sm:top-4 left-1/2 -translate-x-1/2 z-40 select-none max-w-[calc(100vw-4.5rem)] sm:max-w-none">
       <div
-        className={`flex items-center gap-1 p-1.5 rounded-xl border shadow-xl backdrop-blur-md transition-colors ${
+        className={`flex items-center gap-0.5 sm:gap-1 p-1 sm:p-1.5 rounded-xl border shadow-xl backdrop-blur-md transition-colors overflow-x-auto ${
           isDarkMode
-            ? 'bg-[#232329]/90 border-[#34343e] text-neutral-300'
+            ? 'bg-[#232329]/95 border-[#34343e] text-neutral-300'
             : 'bg-white/95 border-neutral-200 text-neutral-700 shadow-neutral-300/40'
         }`}
+        style={{ scrollbarWidth: 'none' }}
       >
         {/* Lock toggle button */}
         <button
           onClick={() => setIsLocked(!isLocked)}
           title={isLocked ? 'Keep selected tool active' : 'Switch to select after drawing'}
-          className={`relative p-2 rounded-lg transition-all flex items-center justify-center ${
+          className={`relative p-1.5 sm:p-2 rounded-lg transition-all flex items-center justify-center shrink-0 ${
             isLocked
               ? 'bg-[#6965db]/20 text-[#827fe2]'
               : isDarkMode
@@ -58,11 +62,11 @@ export default function Toolbar({
               : 'hover:bg-neutral-100 text-neutral-500 hover:text-neutral-900'
           }`}
         >
-          {isLocked ? <Lock size={17} /> : <Unlock size={17} />}
+          {isLocked ? <Lock size={16} /> : <Unlock size={16} />}
         </button>
 
         <div
-          className={`h-5 w-[1px] mx-0.5 ${
+          className={`h-5 w-[1px] mx-0.5 shrink-0 ${
             isDarkMode ? 'bg-[#3b3b47]' : 'bg-neutral-200'
           }`}
         />
@@ -77,7 +81,7 @@ export default function Toolbar({
               key={item.id}
               onClick={() => setActiveTool(item.id)}
               title={`${item.label} (${item.shortcut})`}
-              className={`relative p-2 rounded-lg transition-all group flex items-center justify-center ${
+              className={`relative p-1.5 sm:p-2 rounded-lg transition-all group flex items-center justify-center shrink-0 ${
                 isActive
                   ? 'bg-[#6965db] text-white shadow-sm'
                   : isDarkMode
@@ -85,11 +89,11 @@ export default function Toolbar({
                   : 'hover:bg-neutral-100 text-neutral-600 hover:text-neutral-900'
               }`}
             >
-              <Icon size={18} strokeWidth={isActive ? 2.2 : 1.8} />
+              <Icon size={17} strokeWidth={isActive ? 2.2 : 1.8} />
 
               {/* Shortcut badge */}
               <span
-                className={`absolute bottom-0.5 right-1 text-[9px] font-mono leading-none ${
+                className={`hidden sm:inline-block absolute bottom-0.5 right-1 text-[8px] font-mono leading-none ${
                   isActive
                     ? 'text-white/80'
                     : isDarkMode
@@ -102,6 +106,30 @@ export default function Toolbar({
             </button>
           );
         })}
+
+        {onToggleProperties && (
+          <>
+            <div
+              className={`h-5 w-[1px] mx-0.5 shrink-0 ${
+                isDarkMode ? 'bg-[#3b3b47]' : 'bg-neutral-200'
+              }`}
+            />
+            {/* Style Panel Toggle Button */}
+            <button
+              onClick={onToggleProperties}
+              title={isPropertiesOpen ? 'Hide styles' : 'Show styles & colors'}
+              className={`relative p-1.5 sm:p-2 rounded-lg transition-all flex items-center justify-center shrink-0 ${
+                isPropertiesOpen
+                  ? 'bg-[#6965db]/25 text-[#9794f0]'
+                  : isDarkMode
+                  ? 'hover:bg-[#2e2e38] text-neutral-400 hover:text-white'
+                  : 'hover:bg-neutral-100 text-neutral-500 hover:text-neutral-900'
+              }`}
+            >
+              <Palette size={17} />
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
