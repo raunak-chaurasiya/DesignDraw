@@ -11,7 +11,7 @@
 
 **A lightweight, intuitive virtual whiteboard web application inspired by Excalidraw. Sketch diagrams, flowcharts, wireframes, and notes with an authentic hand-drawn feel, connect shapes dynamically, and export high-resolution JPG images.**
 
-[Explore Live Demo](https://designdraw.vercel.app) · [Report Bug](https://github.com/raunak-chaurasiya/DesignDraw/issues) · [Request Feature](https://github.com/raunak-chaurasiya/DesignDraw/issues)
+[Explore Live Demo](https://design-draw.vercel.app/) · [Report Bug](https://github.com/raunak-chaurasiya/DesignDraw/issues) · [Request Feature](https://github.com/raunak-chaurasiya/DesignDraw/issues)
 
 </div>
 
