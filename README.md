@@ -39,18 +39,51 @@
 - **Copy to Clipboard**: Instant 1-click clipboard copy to paste straight into Slack, Notion, or WhatsApp.
 - **Project JSON Import/Export**: Save editable whiteboard project files (`.json`) to reload anytime.
 
-### 📝 4. Rich Text & Sticky Notes
+### 📸 4. Image Paste & Upload (Ctrl + V / Drag & Drop)
+- **Direct Clipboard Paste**: Copy any screenshot or picture and press `Ctrl + V` anywhere on the whiteboard to paste immediately.
+- **Desktop Drag & Drop**: Drag images from your desktop or folders straight onto the canvas.
+- **Toolbar Image Picker**: Dedicated toolbar button and file picker for mobile and desktop uploads.
+- **Proportional Resizing**: Smart corner handles preserve the natural aspect ratio of images without stretching or squishing.
+- **Custom Borders & Opacity**: Add hand-drawn sketch frames or adjust opacity for tracing and wireframing.
+
+### 📦 5. Multi-Element Selection & Grouping (Ctrl + G)
+- **Marquee Drag Selection**: Click and drag on empty canvas to select multiple elements at once with a blue dashed marquee box.
+- **Shift + Click Multi-Select**: Hold `Shift` while clicking to add or remove individual shapes from your selection.
+- **Group & Ungroup**: Press `Ctrl + G` to group shapes together into a single unit, or `Ctrl + Shift + G` to ungroup.
+- **Group-Aware Interaction**: Clicking any member of a group selects the whole group, and dragging moves all grouped elements synchronously.
+- **Smart Alignment Tools**: 1-click alignment toolbar in Properties Panel (Align Left, Center Horizontal, Right, Top, Middle Vertical, Bottom).
+- **Batch Styling & Operations**: Duplicate, Delete, or recolor all selected elements at once.
+
+### 📝 6. Rich Text & Sticky Notes
 - **Direct Canvas Text**: Select Text tool (`T`) and click anywhere to write with auto-focus.
 - **Double-Click Creation**: Double-click on any empty canvas area to start typing.
 - **Handwritten Fonts**: Supports *Patrick Hand*, *Architects Daughter*, *Inter*, and monospace fonts.
 - **Pastel Sticky Notes**: Drop yellow/pastel notes on the board for quick brainstorming.
 
-### 💥 5. Animated Satisfying Eraser
+### 📊 7. Native Hand-Drawn Tables & Grids
+- **Instant Hand-Drawn Tables**: Draw neat, organic, hand-drawn tables with customizable rows and columns.
+- **Floating Quick Controls**: Click any table to access floating quick-actions:
+  - `+ Row` / `- Row`: Dynamically add or remove rows.
+  - `+ Col` / `- Col`: Dynamically add or remove columns.
+  - `Header`: Toggle highlighted header row styling.
+- **In-Place Cell Editing**: Double-click any cell to type text directly inside it.
+- **Keyboard Tab Navigation**: Press `Tab` to navigate to the next cell or auto-add a new row at the table's end! Press `Shift + Tab` for previous cell.
+- **Full Styling & Font Support**: Supports handwritten fonts, roughness levels, and stroke/fill styling.
+
+### 🧠 8. Smart Mind-Map & Tree Mode (Auto-Branching)
+- **Instant Child Branching (`Tab`)**: Select any shape or topic and press `Tab` to auto-spawn a connected child node to the right with an auto-following magnetic arrow!
+- **Instant Sibling Branching (`Enter`)**: Press `Enter` on any child node to auto-spawn a sibling branch directly beneath it connected to the same parent!
+- **Interactive 4-Way Branch Handles**: Hover over any selected shape to reveal glowing `+` buttons on all 4 sides (Right, Bottom, Left, Top) to branch in any direction.
+- **Collision-Free Auto Spacing**: Automatically calculates non-overlapping positions so nodes never collide.
+- **Direct Shape Text**: Double-click any rectangle, diamond, ellipse, or sticky note to write centered text.
+- **Dedicated Mind Map Tool (`M`)**: Drop a "Central Idea" topic on the canvas with 1 click to jumpstart your brainstorm.
+
+### 💥 9. Animated Satisfying Eraser
 - Custom glowing eraser ring cursor following the mouse.
 - **Fading Red Trail**: Real-time trail showing the path being erased.
 - **Particle Burst Explosion**: 16 sparkling dust particles explode whenever an element is erased, giving tactile 60 FPS visual feedback.
 
-### 🔍 6. Infinite Canvas Navigation
+### 🔍 10. Infinite Canvas Navigation
 - **Pan**: Hold `Spacebar + Drag`, use `Hand Tool (H)`, or drag with the `Mouse Scroll Wheel`.
 - **Zoom**: Smooth mouse wheel zoom centered at cursor position, or use the bottom-left `[-] 100% [+]` controls.
 - **Undo / Redo**: Multi-step history stack with `Ctrl + Z` and `Ctrl + Y`.
@@ -71,11 +104,21 @@
 | **Pencil / Freehand** | `P` or `7` | Freehand drawing and sketching |
 | **Text** | `T` or `8` | Type text (or double-click canvas) |
 | **Sticky Note** | `N` or `9` | Place sticky brainstorming notes |
+| **Table (Grid)** | `B` | Draw hand-drawn grid tables |
+| **Mind Map Root** | `M` | Spawn a central mind map topic |
+| **Add Child Branch** | `Tab` | Auto-branch connected child node |
+| **Add Sibling Branch** | `Enter` | Auto-branch connected sibling node |
+| **Image Tool** | `I` | Insert image from file picker |
+| **Paste Image** | `Ctrl + V` | Paste screenshot or image from clipboard |
 | **Eraser** | `E` or `0` | Erase elements with particle effects |
 | **Undo** | `Ctrl + Z` | Undo last action |
 | **Redo** | `Ctrl + Y` or `Ctrl + Shift + Z` | Redo undone action |
-| **Duplicate** | `Ctrl + D` | Duplicate selected element |
-| **Delete** | `Delete` or `Backspace` | Delete selected element |
+| **Select All** | `Ctrl + A` | Select all elements on canvas |
+| **Group Elements** | `Ctrl + G` | Group selected elements together |
+| **Ungroup Elements** | `Ctrl + Shift + G` | Ungroup selected group |
+| **Toggle Multi-Select** | `Shift + Click` | Add/remove shape from selection |
+| **Duplicate** | `Ctrl + D` | Duplicate selected element(s) |
+| **Delete** | `Delete` or `Backspace` | Delete selected element(s) |
 | **Reset Zoom** | `Ctrl + 0` | Reset canvas zoom to 100% |
 
 ---
