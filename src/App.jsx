@@ -1699,35 +1699,7 @@ export default function App() {
     });
   };
 
-  // Smooth Zoom with Mouse Wheel (focused at mouse position)
-  const handleWheel = (e) => {
-    e.preventDefault();
-
-    if (e.ctrlKey || e.metaKey) {
-      // Zoom
-      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-      const newZoom = Math.min(4.0, Math.max(0.15, zoom * zoomFactor));
-
-      const rect = canvasRef.current.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-
-      // Keep mouse position pinned
-      const newPanX = mouseX - (mouseX - pan.x) * (newZoom / zoom);
-      const newPanY = mouseY - (mouseY - pan.y) * (newZoom / zoom);
-
-      setZoom(newZoom);
-      setPan({ x: newPanX, y: newPanY });
-    } else {
-      // Two finger pan or standard scroll pan
-      setPan((prev) => ({
-        x: prev.x - e.deltaX,
-        y: prev.y - e.deltaY,
-      }));
-    }
-  };
-
-  // Touch support for mobile phones and tablets
+  // Touch and Wheel support for canvas
   const handleMouseDownRef = useRef(handleMouseDown);
   handleMouseDownRef.current = handleMouseDown;
   const handleMouseMoveRef = useRef(handleMouseMove);
@@ -1741,6 +1713,42 @@ export default function App() {
 
     let initialTouchDist = null;
     let initialTouchCenter = null;
+
+    // Smooth Zoom & Pan with Mouse Wheel / Trackpad (non-passive to allow preventDefault without console violation)
+    const onWheel = (e) => {
+      e.preventDefault();
+
+      if (e.ctrlKey || e.metaKey) {
+        // Zoom
+        const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+        const currentZoom = zoomRef.current;
+        const currentPan = panRef.current;
+        const newZoom = Math.min(4.0, Math.max(0.15, currentZoom * zoomFactor));
+
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        // Keep mouse position pinned
+        const newPanX = mouseX - (mouseX - currentPan.x) * (newZoom / currentZoom);
+        const newPanY = mouseY - (mouseY - currentPan.y) * (newZoom / currentZoom);
+
+        setZoom(newZoom);
+        zoomRef.current = newZoom;
+        setPan({ x: newPanX, y: newPanY });
+        panRef.current = { x: newPanX, y: newPanY };
+      } else {
+        // Two finger pan or standard scroll pan
+        setPan((prev) => {
+          const nextPan = {
+            x: prev.x - e.deltaX,
+            y: prev.y - e.deltaY,
+          };
+          panRef.current = nextPan;
+          return nextPan;
+        });
+      }
+    };
 
     const onTouchStart = (e) => {
       e.preventDefault();
@@ -1830,12 +1838,14 @@ export default function App() {
       setAction('none');
     };
 
+    canvas.addEventListener('wheel', onWheel, { passive: false });
     canvas.addEventListener('touchstart', onTouchStart, { passive: false });
     canvas.addEventListener('touchmove', onTouchMove, { passive: false });
     canvas.addEventListener('touchend', onTouchEnd, { passive: false });
     canvas.addEventListener('touchcancel', onTouchCancel, { passive: false });
 
     return () => {
+      canvas.removeEventListener('wheel', onWheel);
       canvas.removeEventListener('touchstart', onTouchStart);
       canvas.removeEventListener('touchmove', onTouchMove);
       canvas.removeEventListener('touchend', onTouchEnd);
@@ -2048,9 +2058,8 @@ export default function App() {
     <div
       onDragOver={handleDragOver}
       onDrop={handleDrop}
-      className={`relative w-screen h-screen overflow-hidden select-none ${
-        isDarkMode ? 'bg-[#121212] text-white' : 'bg-[#f8f9fa] text-neutral-800'
-      }`}
+      className={`relative w-screen h-screen overflow-hidden select-none ${isDarkMode ? 'bg-[#121212] text-white' : 'bg-[#f8f9fa] text-neutral-800'
+        }`}
       style={{ cursor: getCursor() }}
     >
       {/* Hidden file input for image upload */}
@@ -2124,9 +2133,8 @@ export default function App() {
       {/* Center Top Hint Message (just like in Excalidraw) */}
       <div className="fixed top-16 left-1/2 -translate-x-1/2 z-20 pointer-events-none opacity-60 text-center">
         <span
-          className={`text-xs px-3 py-1 rounded-full backdrop-blur-sm ${
-            isDarkMode ? 'bg-white/5 text-neutral-400' : 'bg-black/5 text-neutral-500'
-          }`}
+          className={`text-xs px-3 py-1 rounded-full backdrop-blur-sm ${isDarkMode ? 'bg-white/5 text-neutral-400' : 'bg-black/5 text-neutral-500'
+            }`}
         >
           To move canvas, hold <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono text-[10px]">Space</kbd> or <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono text-[10px]">Scroll Wheel</kbd> while dragging
         </span>
@@ -2155,7 +2163,7 @@ export default function App() {
           <span>Export JPG</span>
         </button>
       </div>
-          
+
       {/* Main HTML5 Canvas */}
       <canvas
         ref={canvasRef}
@@ -2164,7 +2172,6 @@ export default function App() {
         onMouseUp={handleMouseUp}
         onMouseLeave={() => eraserFxRef.current.clearCursor()}
         onDoubleClick={handleDoubleClick}
-        onWheel={handleWheel}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
         className="block absolute inset-0 touch-none"
@@ -2213,8 +2220,8 @@ export default function App() {
                 editingText.type === 'sticky'
                   ? '#fff3bf'
                   : isDarkMode
-                  ? '#1e1e24'
-                  : '#ffffff',
+                    ? '#1e1e24'
+                    : '#ffffff',
               minWidth: editingText.type === 'sticky' ? '180px' : '160px',
               minHeight: editingText.type === 'sticky' ? '140px' : '48px',
             }}
@@ -2266,11 +2273,10 @@ export default function App() {
             transform: 'translateX(-50%)',
             zIndex: 45,
           }}
-          className={`flex items-center gap-1 p-1 rounded-xl border shadow-xl backdrop-blur-md select-none ${
-            isDarkMode
+          className={`flex items-center gap-1 p-1 rounded-xl border shadow-xl backdrop-blur-md select-none ${isDarkMode
               ? 'bg-[#1e1e24]/95 border-[#34343e] text-neutral-200 shadow-black/40'
               : 'bg-white/95 border-neutral-200 text-neutral-800 shadow-neutral-300/40'
-          }`}
+            }`}
         >
           <span className="text-[11px] font-mono font-semibold px-2 text-[#9794f0]">
             {selectedElement.rows || 3}×{selectedElement.cols || 3}
@@ -2311,11 +2317,10 @@ export default function App() {
           <button
             onClick={() => handleToggleTableHeader(selectedElement.id)}
             title="Toggle Header Row styling"
-            className={`px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
-              selectedElement.hasHeader
+            className={`px-2 py-1 rounded-lg text-xs font-medium transition-colors ${selectedElement.hasHeader
                 ? 'bg-[#6965db] text-white shadow-sm'
                 : 'hover:bg-white/10 text-neutral-400'
-            }`}
+              }`}
           >
             Header
           </button>
@@ -2501,11 +2506,10 @@ export default function App() {
       {toastMessage && (
         <div className="fixed bottom-16 left-1/2 -translate-x-1/2 z-50 pointer-events-none animate-in fade-in slide-in-from-bottom-2 duration-150">
           <div
-            className={`px-4 py-2 rounded-xl text-xs font-semibold shadow-2xl backdrop-blur-md border ${
-              isDarkMode
+            className={`px-4 py-2 rounded-xl text-xs font-semibold shadow-2xl backdrop-blur-md border ${isDarkMode
                 ? 'bg-[#1e1e24]/95 text-white border-white/10 shadow-black/50'
                 : 'bg-white/95 text-neutral-800 border-neutral-200 shadow-neutral-400/40'
-            }`}
+              }`}
           >
             {toastMessage}
           </div>
