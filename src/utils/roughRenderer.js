@@ -1,6 +1,28 @@
 import rough from 'roughjs';
 import { getElementBounds, getResizeHandles } from './math';
 
+// Image cache to avoid re-decoding image data on every 60fps frame
+export const imageCache = new Map();
+
+export function getCachedImage(dataUrl, onLoaded) {
+  if (!dataUrl) return null;
+  let entry = imageCache.get(dataUrl);
+  if (!entry) {
+    const img = new Image();
+    entry = { img, loaded: false };
+    img.onload = () => {
+      entry.loaded = true;
+      if (onLoaded) onLoaded(img);
+    };
+    img.onerror = () => {
+      entry.error = true;
+    };
+    img.src = dataUrl;
+    imageCache.set(dataUrl, entry);
+  }
+  return entry.loaded ? entry.img : null;
+}
+
 export function renderElement(ctx, rc, element, isSelected = false) {
   if (!element) return;
 
@@ -38,6 +60,9 @@ export function renderElement(ctx, rc, element, isSelected = false) {
       const h = Math.abs(element.height);
       if (w > 0 && h > 0) {
         rc.rectangle(x, y, w, h, roughOptions);
+        if (element.text) {
+          drawCenteredTextInShape(ctx, element, x, y, w, h);
+        }
       }
       break;
     }
@@ -53,6 +78,9 @@ export function renderElement(ctx, rc, element, isSelected = false) {
         const bottom = [x + w / 2, y + h];
         const left = [x, y + h / 2];
         rc.polygon([top, right, bottom, left], roughOptions);
+        if (element.text) {
+          drawCenteredTextInShape(ctx, element, x, y, w, h);
+        }
       }
       break;
     }
@@ -66,6 +94,9 @@ export function renderElement(ctx, rc, element, isSelected = false) {
         const cx = x + w / 2;
         const cy = y + h / 2;
         rc.ellipse(cx, cy, w, h, roughOptions);
+        if (element.text) {
+          drawCenteredTextInShape(ctx, element, x, y, w, h);
+        }
       }
       break;
     }
@@ -180,6 +211,141 @@ export function renderElement(ctx, rc, element, isSelected = false) {
       break;
     }
 
+    case 'image': {
+      const x = Math.min(element.x, element.x + element.width);
+      const y = Math.min(element.y, element.y + element.height);
+      const w = Math.abs(element.width);
+      const h = Math.abs(element.height);
+
+      if (w > 0 && h > 0) {
+        const cachedImg = getCachedImage(element.dataUrl);
+
+        if (cachedImg) {
+          ctx.save();
+          // Clip with subtle rounded corners
+          ctx.beginPath();
+          const r = Math.min(8, Math.min(w, h) / 6);
+          if (typeof ctx.roundRect === 'function') {
+            ctx.roundRect(x, y, w, h, r);
+          } else {
+            ctx.rect(x, y, w, h);
+          }
+          ctx.clip();
+          ctx.drawImage(cachedImg, x, y, w, h);
+          ctx.restore();
+
+          // If border is set, draw border
+          if (element.strokeWidth && element.strokeWidth > 0 && element.strokeColor && element.strokeColor !== 'transparent') {
+            rc.rectangle(x, y, w, h, {
+              ...roughOptions,
+              fill: undefined,
+              fillStyle: undefined,
+            });
+          }
+        } else {
+          // Loading skeleton placeholder
+          ctx.save();
+          ctx.fillStyle = 'rgba(105, 101, 219, 0.08)';
+          ctx.strokeStyle = '#6965db';
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([6, 6]);
+          ctx.fillRect(x, y, w, h);
+          ctx.strokeRect(x, y, w, h);
+          ctx.fillStyle = '#827fe2';
+          ctx.font = '13px Inter, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('🖼️ Loading Image...', x + w / 2, y + h / 2);
+          ctx.restore();
+        }
+      }
+      break;
+    }
+
+    case 'table': {
+      const x = Math.min(element.x, element.x + element.width);
+      const y = Math.min(element.y, element.y + element.height);
+      const w = Math.max(60, Math.abs(element.width));
+      const h = Math.max(40, Math.abs(element.height));
+      const rows = Math.max(1, element.rows || (element.data ? element.data.length : 3));
+      const cols = Math.max(1, element.cols || (element.data && element.data[0] ? element.data[0].length : 3));
+      const colW = w / cols;
+      const rowH = h / rows;
+      const data = element.data || [];
+
+      if (w > 0 && h > 0) {
+        // 1. Draw outer table container box
+        rc.rectangle(x, y, w, h, roughOptions);
+
+        // 2. Draw header tint if hasHeader is enabled
+        if (element.hasHeader && rows > 0) {
+          ctx.save();
+          // Header subtle accent background tint
+          const headerFill = element.backgroundColor && element.backgroundColor !== 'transparent'
+            ? element.backgroundColor
+            : 'rgba(105, 101, 219, 0.16)';
+          ctx.fillStyle = headerFill;
+          ctx.fillRect(x + 1, y + 1, w - 2, rowH - 1);
+          ctx.restore();
+
+          // Header row bottom border
+          rc.line(x, y + rowH, x + w, y + rowH, {
+            ...roughOptions,
+            strokeWidth: Math.max(2.5, (element.strokeWidth || 2) * 1.25),
+          });
+        }
+
+        // 3. Draw horizontal row dividers
+        for (let r = 1; r < rows; r++) {
+          if (r === 1 && element.hasHeader) continue; // already drawn above
+          const lineY = y + r * rowH;
+          rc.line(x, lineY, x + w, lineY, roughOptions);
+        }
+
+        // 4. Draw vertical column dividers
+        for (let c = 1; c < cols; c++) {
+          const lineX = x + c * colW;
+          rc.line(lineX, y, lineX, y + h, roughOptions);
+        }
+
+        // 5. Draw cell text
+        const fontSize = element.fontSize || 18;
+        const fontFamily = element.fontFamily || "'Patrick Hand', cursive";
+        ctx.textBaseline = 'top';
+
+        const padX = 8;
+        const padY = 6;
+        const maxTextW = Math.max(20, colW - padX * 2);
+
+        for (let r = 0; r < rows; r++) {
+          const isHeaderRow = r === 0 && element.hasHeader;
+          for (let c = 0; c < cols; c++) {
+            const rawText = data[r] && data[r][c] !== undefined ? String(data[r][c]) : '';
+            if (!rawText) continue;
+
+            const cellX = x + c * colW;
+            const cellY = y + r * rowH;
+
+            ctx.fillStyle = element.strokeColor || '#ffffff';
+            ctx.font = isHeaderRow
+              ? `bold ${fontSize}px ${fontFamily}`
+              : `${fontSize}px ${fontFamily}`;
+
+            const lines = wrapText(ctx, rawText, maxTextW);
+            const lineHeight = fontSize * 1.3;
+
+            let curTextY = cellY + padY;
+            for (const line of lines) {
+              if (curTextY + lineHeight > cellY + rowH) break; // clip if exceeding cell height
+              ctx.fillText(line, cellX + padX, curTextY);
+              curTextY += lineHeight;
+            }
+          }
+        }
+      }
+      break;
+    }
+
     default:
       break;
   }
@@ -212,6 +378,34 @@ function wrapText(ctx, text, maxWidth) {
     lines.push(currentLine);
   }
   return lines.length > 0 ? lines : [''];
+}
+
+// Draw centered text inside shapes (rectangle, ellipse, diamond, etc.)
+function drawCenteredTextInShape(ctx, element, x, y, w, h) {
+  if (!element.text) return;
+  const fontSize = element.fontSize || 20;
+  const fontFamily = element.fontFamily || "'Patrick Hand', cursive";
+  ctx.save();
+  ctx.fillStyle = element.textColor || element.strokeColor || '#ffffff';
+  ctx.font = `${fontSize}px ${fontFamily}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  const pad = 10;
+  const maxWidth = Math.max(20, w - pad * 2);
+  const lines = wrapText(ctx, element.text, maxWidth);
+  const lineHeight = fontSize * 1.3;
+  const totalHeight = lines.length * lineHeight;
+
+  let startY = y + (h - totalHeight) / 2 + lineHeight / 2;
+  const centerX = x + w / 2;
+
+  for (const line of lines) {
+    if (startY > y + h - pad / 2) break;
+    ctx.fillText(line, centerX, startY);
+    startY += lineHeight;
+  }
+  ctx.restore();
 }
 
 // Draw selection border and resize handles

@@ -78,7 +78,7 @@ export function getElementBounds(element) {
     };
   }
 
-  // Shapes & sticky
+  // Shapes, sticky & table
   const x = element.x || 0;
   const y = element.y || 0;
   const w = element.width || 0;
@@ -96,6 +96,42 @@ export function getElementBounds(element) {
     maxY,
     width: maxX - minX,
     height: maxY - minY,
+  };
+}
+
+// Table cell & dimensions helpers
+export function getTableDimensions(element) {
+  if (!element || element.type !== 'table') return null;
+  const rows = Math.max(1, element.rows || (element.data ? element.data.length : 3));
+  const cols = Math.max(1, element.cols || (element.data && element.data[0] ? element.data[0].length : 3));
+  const x = Math.min(element.x, element.x + element.width);
+  const y = Math.min(element.y, element.y + element.height);
+  const width = Math.max(80, Math.abs(element.width || 0));
+  const height = Math.max(40, Math.abs(element.height || 0));
+  const colWidth = width / cols;
+  const rowHeight = height / rows;
+  return { x, y, width, height, rows, cols, colWidth, rowHeight };
+}
+
+export function getCellAtPoint(px, py, element) {
+  const dims = getTableDimensions(element);
+  if (!dims) return null;
+  const { x, y, width, height, rows, cols, colWidth, rowHeight } = dims;
+
+  if (px < x || px > x + width || py < y || py > y + height) {
+    return null;
+  }
+
+  const colIndex = Math.min(cols - 1, Math.max(0, Math.floor((px - x) / colWidth)));
+  const rowIndex = Math.min(rows - 1, Math.max(0, Math.floor((py - y) / rowHeight)));
+
+  return {
+    rowIndex,
+    colIndex,
+    cellX: x + colIndex * colWidth,
+    cellY: y + rowIndex * rowHeight,
+    cellWidth: colWidth,
+    cellHeight: rowHeight,
   };
 }
 
@@ -125,6 +161,35 @@ export function getElementsBounds(elements, padding = 40) {
     maxY: maxY + padding,
     width: Math.max(100, maxX - minX + padding * 2),
     height: Math.max(100, maxY - minY + padding * 2),
+  };
+}
+
+// Compute exact bounding box for a list of elements without 100px minimum enforcement
+export function getElementsExactBounds(elements, padding = 0) {
+  if (!elements || elements.length === 0) {
+    return { minX: 0, minY: 0, maxX: 0, maxY: 0, width: 0, height: 0 };
+  }
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+
+  for (const el of elements) {
+    const b = getElementBounds(el);
+    if (b.minX < minX) minX = b.minX;
+    if (b.minY < minY) minY = b.minY;
+    if (b.maxX > maxX) maxX = b.maxX;
+    if (b.maxY > maxY) maxY = b.maxY;
+  }
+
+  return {
+    minX: minX - padding,
+    minY: minY - padding,
+    maxX: maxX + padding,
+    maxY: maxY + padding,
+    width: Math.max(0, maxX - minX + padding * 2),
+    height: Math.max(0, maxY - minY + padding * 2),
   };
 }
 
@@ -163,7 +228,7 @@ export function isPointInElement(px, py, element, threshold = 8) {
     return distToSegment(px, py, element.x1, element.y1, element.x2, element.y2) <= threshold + (element.strokeWidth || 2);
   }
 
-  if (type === 'rectangle' || type === 'text' || type === 'sticky') {
+  if (type === 'rectangle' || type === 'text' || type === 'sticky' || type === 'image' || type === 'table') {
     return (
       px >= bounds.minX - threshold &&
       px <= bounds.maxX + threshold &&

@@ -12,6 +12,9 @@ import {
   Pencil,
   Type,
   StickyNote,
+  Table,
+  Network,
+  Image as ImageIcon,
   Eraser,
   Palette,
 } from 'lucide-react';
@@ -28,6 +31,9 @@ const TOOL_ITEMS = [
   { id: TOOLS.PENCIL, label: 'Draw / Pencil', icon: Pencil, shortcut: 'P' },
   { id: TOOLS.TEXT, label: 'Text', icon: Type, shortcut: 'T' },
   { id: TOOLS.STICKY, label: 'Sticky Note', icon: StickyNote, shortcut: 'N' },
+  { id: TOOLS.TABLE, label: 'Table (Grid)', icon: Table, shortcut: 'B' },
+  { id: TOOLS.MINDMAP, label: 'Mind Map (Branch)', icon: Network, shortcut: 'M' },
+  { id: TOOLS.IMAGE, label: 'Image (or Ctrl+V)', icon: ImageIcon, shortcut: 'I' },
   { id: TOOLS.ERASER, label: 'Eraser', icon: Eraser, shortcut: 'E' },
 ];
 
@@ -39,6 +45,7 @@ export default function Toolbar({
   isDarkMode = true,
   onToggleProperties,
   isPropertiesOpen,
+  onImageUpload,
 }) {
   return (
     <div className="fixed top-3 sm:top-4 left-1/2 -translate-x-1/2 z-40 select-none max-w-[calc(100vw-4.5rem)] sm:max-w-none">
@@ -79,7 +86,13 @@ export default function Toolbar({
           return (
             <button
               key={item.id}
-              onClick={() => setActiveTool(item.id)}
+              onClick={() => {
+                if (item.id === TOOLS.IMAGE && onImageUpload) {
+                  onImageUpload();
+                } else {
+                  setActiveTool(item.id);
+                }
+              }}
               title={`${item.label} (${item.shortcut})`}
               className={`relative p-1.5 sm:p-2 rounded-lg transition-all group flex items-center justify-center shrink-0 ${
                 isActive

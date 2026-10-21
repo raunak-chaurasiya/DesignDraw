@@ -9,6 +9,9 @@ export const TOOLS = {
   PENCIL: 'pencil',
   TEXT: 'text',
   STICKY: 'sticky',
+  TABLE: 'table',
+  MINDMAP: 'mindmap',
+  IMAGE: 'image',
   ERASER: 'eraser',
 };
 

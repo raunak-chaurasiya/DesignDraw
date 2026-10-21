@@ -14,11 +14,15 @@ import {
   getElementBounds,
   getHitResizeHandle,
   isElementInBox,
+  getElementsExactBounds,
+  getCellAtPoint,
+  getTableDimensions,
 } from './utils/math';
-import { renderElement, drawGrid, drawShapeAnchors } from './utils/roughRenderer';
+import { renderElement, drawGrid, drawShapeAnchors, imageCache } from './utils/roughRenderer';
 import { findNearestAnchor, updateConnectedArrows } from './utils/binding';
 import { EraserEffectManager } from './utils/eraserEffects';
 import { exportToJson } from './utils/export';
+import { createBranchNode } from './utils/mindmap';
 
 // Start with a clean whiteboard
 const INITIAL_ELEMENTS = [];
@@ -26,6 +30,10 @@ const INITIAL_ELEMENTS = [];
 export default function App() {
   const canvasRef = useRef(null);
   const textAreaRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const lastMousePosRef = useRef({ clientX: window.innerWidth / 2, clientY: window.innerHeight / 2 });
+  const [toastMessage, setToastMessage] = useState(null);
+  const toastTimeoutRef = useRef(null);
 
   // Canvas View & Theme State
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -40,7 +48,11 @@ export default function App() {
   const [activeTool, setActiveTool] = useState(TOOLS.SELECT);
   const [isLocked, setIsLocked] = useState(false);
   const [elements, setElements] = useState(INITIAL_ELEMENTS);
-  const [selectedElementId, setSelectedElementId] = useState(null);
+  const [selectedElementIds, setSelectedElementIds] = useState([]);
+  const selectedElementId = selectedElementIds[0] || null;
+  const setSelectedElementId = useCallback((id) => {
+    setSelectedElementIds(id ? [id] : []);
+  }, []);
   const [currentStyle, setCurrentStyle] = useState(DEFAULT_STYLE);
 
   // Undo / Redo History
@@ -76,6 +88,8 @@ export default function App() {
 
   // Inline Text Editor State
   const [editingText, setEditingText] = useState(null); // { id, x, y, text, isNew, fontSize, fontFamily, color }
+  const [editingCell, setEditingCell] = useState(null); // { tableId, rowIndex, colIndex, cellX, cellY, cellWidth, cellHeight, text, fontSize, fontFamily }
+  const cellInputRef = useRef(null);
 
   // Modals & Panels (Style panel closed by default on mobile so it doesn't obstruct screen)
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -152,8 +166,168 @@ export default function App() {
     [pan, zoom]
   );
 
-  // Selected element object
-  const selectedElement = elements.find((el) => el.id === selectedElementId) || null;
+  // Toast notifications
+  const showToast = useCallback((msg) => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setToastMessage(msg);
+    toastTimeoutRef.current = setTimeout(() => {
+      setToastMessage(null);
+    }, 2500);
+  }, []);
+
+  // Insert image element onto canvas
+  const insertImageElement = useCallback(
+    (dataUrl, clientX, clientY) => {
+      if (!dataUrl) return;
+
+      const img = new Image();
+      img.onload = () => {
+        const nw = img.naturalWidth || 400;
+        const nh = img.naturalHeight || 300;
+        const targetClientX = clientX !== undefined ? clientX : window.innerWidth / 2;
+        const targetClientY = clientY !== undefined ? clientY : window.innerHeight / 2;
+
+        const canvasCoord = getCanvasCoords(targetClientX, targetClientY);
+
+        // Scale proportionally if image is large
+        const maxDim = 520;
+        let displayW = nw;
+        let displayH = nh;
+        if (displayW > maxDim || displayH > maxDim) {
+          const scale = Math.min(maxDim / displayW, maxDim / displayH);
+          displayW = Math.round(displayW * scale);
+          displayH = Math.round(displayH * scale);
+        }
+
+        const newImageEl = {
+          id: 'el-img-' + Date.now(),
+          type: 'image',
+          x: Math.round(canvasCoord.x - displayW / 2),
+          y: Math.round(canvasCoord.y - displayH / 2),
+          width: displayW,
+          height: displayH,
+          naturalWidth: nw,
+          naturalHeight: nh,
+          dataUrl,
+          aspectRatio: nw / nh,
+          strokeColor: 'transparent',
+          strokeWidth: 0,
+          strokeStyle: 'solid',
+          roughness: 0,
+          opacity: 100,
+          seed: Math.floor(Math.random() * 100000),
+        };
+
+        // Cache image immediately so it renders at 60 FPS
+        imageCache.set(dataUrl, { img, loaded: true });
+
+        const updated = [...elementsRef.current, newImageEl];
+        elementsRef.current = updated;
+        pushHistory(updated);
+        setSelectedElementId(newImageEl.id);
+        setActiveTool(TOOLS.SELECT);
+        activeToolRef.current = TOOLS.SELECT;
+        setShowIntro(false);
+        showToast('🖼️ Image pasted onto canvas!');
+      };
+      img.src = dataUrl;
+    },
+    [getCanvasCoords, pushHistory, showToast]
+  );
+
+  // File picker handler
+  const handleImageFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      showToast('⚠️ Please select a valid image file');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target.result;
+      const pos = lastMousePosRef.current || {
+        clientX: window.innerWidth / 2,
+        clientY: window.innerHeight / 2,
+      };
+      insertImageElement(dataUrl, pos.clientX, pos.clientY);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleTriggerImageUpload = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  // Drag and drop handlers
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const files = e.dataTransfer?.files;
+    if (!files || files.length === 0) return;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        const dropClientX = e.clientX;
+        const dropClientY = e.clientY;
+        reader.onload = (event) => {
+          insertImageElement(event.target.result, dropClientX, dropClientY);
+        };
+        reader.readAsDataURL(file);
+        break;
+      }
+    }
+  };
+
+  // Global Clipboard Paste (Ctrl+V)
+  useEffect(() => {
+    const handlePaste = (e) => {
+      // If typing in input or textarea, let standard text paste happen
+      if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) {
+        return;
+      }
+
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.indexOf('image') !== -1) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (!file) continue;
+
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const dataUrl = event.target.result;
+            const pos = lastMousePosRef.current || {
+              clientX: window.innerWidth / 2,
+              clientY: window.innerHeight / 2,
+            };
+            insertImageElement(dataUrl, pos.clientX, pos.clientY);
+          };
+          reader.readAsDataURL(file);
+          break;
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [insertImageElement]);
+
+  // Selected elements
+  const selectedElements = elements.filter((el) => selectedElementIds.includes(el.id));
+  const selectedElement = selectedElements.length === 1 ? selectedElements[0] : null;
 
   // Render Canvas
   useEffect(() => {
@@ -194,7 +368,45 @@ export default function App() {
     // Draw all committed elements
     for (const el of elements) {
       if (editingText && editingText.id === el.id) continue; // Don't draw element currently being typed in
-      renderElement(ctx, rc, el, el.id === selectedElementId);
+      renderElement(ctx, rc, el, selectedElementIds.includes(el.id));
+    }
+
+    // Draw combined group/multi-selection bounding box if more than 1 element selected
+    if (selectedElements.length > 1) {
+      const b = getElementsExactBounds(selectedElements, 6);
+      ctx.save();
+      ctx.strokeStyle = '#6965db';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 4]);
+      ctx.strokeRect(b.minX, b.minY, b.width, b.height);
+
+      // Check if all selected elements share the same groupId
+      const isGroup =
+        selectedElements[0].groupId &&
+        selectedElements.every((el) => el.groupId === selectedElements[0].groupId);
+      const badgeText = isGroup ? `Group (${selectedElements.length})` : `${selectedElements.length} items`;
+
+      ctx.setLineDash([]);
+      ctx.font = '11px Inter, sans-serif';
+      const textMetrics = ctx.measureText(badgeText);
+      const bw = textMetrics.width + 12;
+      const bh = 18;
+      const bx = b.minX;
+      const by = b.minY - bh - 4;
+
+      ctx.fillStyle = '#6965db';
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(bx, by, bw, bh, 4);
+      } else {
+        ctx.rect(bx, by, bw, bh);
+      }
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(badgeText, bx + 6, by + bh / 2);
+      ctx.restore();
     }
 
     // Draw active drawing element preview
@@ -239,7 +451,8 @@ export default function App() {
   }, [
     elements,
     currentElement,
-    selectedElementId,
+    selectedElementIds,
+    selectedElements,
     selectionBox,
     hoveredAnchor,
     animFrame,
@@ -276,71 +489,206 @@ export default function App() {
     }
   }, [editingText?.id]);
 
+  // Auto-focus cell input when editing a table cell
+  useEffect(() => {
+    if (editingCell) {
+      const timer = setTimeout(() => {
+        if (cellInputRef.current) {
+          cellInputRef.current.focus();
+          cellInputRef.current.select();
+        }
+      }, 40);
+      return () => clearTimeout(timer);
+    }
+  }, [editingCell?.tableId, editingCell?.rowIndex, editingCell?.colIndex]);
+
   // Update element style (or default style if nothing selected)
   const handleUpdateStyle = (key, value) => {
     setCurrentStyle((prev) => ({ ...prev, [key]: value }));
 
-    if (selectedElementId) {
+    if (selectedElementIds.length > 0) {
       const updated = elements.map((el) => {
-        if (el.id === selectedElementId) {
+        if (selectedElementIds.includes(el.id)) {
           return { ...el, [key]: value };
         }
         return el;
       });
+      elementsRef.current = updated;
       pushHistory(updated);
     }
   };
 
-  // Delete selected element
+  // Delete selected elements
   const handleDeleteSelected = useCallback(() => {
-    if (!selectedElementId) return;
-    const updated = elements.filter((el) => el.id !== selectedElementId);
-    setSelectedElementId(null);
+    if (selectedElementIds.length === 0) return;
+    const count = selectedElementIds.length;
+    const updated = elements.filter((el) => !selectedElementIds.includes(el.id));
+    elementsRef.current = updated;
+    setSelectedElementIds([]);
     pushHistory(updated);
-  }, [selectedElementId, elements, pushHistory]);
-
-  // Duplicate selected element
-  const handleDuplicateSelected = useCallback(() => {
-    if (!selectedElement) return;
-    const newElement = {
-      ...selectedElement,
-      id: 'el-' + Date.now(),
-      x: (selectedElement.x || selectedElement.x1 || 0) + 20,
-      y: (selectedElement.y || selectedElement.y1 || 0) + 20,
-      x1: selectedElement.x1 !== undefined ? selectedElement.x1 + 20 : undefined,
-      y1: selectedElement.y1 !== undefined ? selectedElement.y1 + 20 : undefined,
-      x2: selectedElement.x2 !== undefined ? selectedElement.x2 + 20 : undefined,
-      y2: selectedElement.y2 !== undefined ? selectedElement.y2 + 20 : undefined,
-      seed: Math.floor(Math.random() * 100000),
-    };
-    const updated = [...elements, newElement];
-    setSelectedElementId(newElement.id);
-    pushHistory(updated);
-  }, [selectedElement, elements, pushHistory]);
-
-  // Layering: Forward / Backward
-  const handleBringForward = () => {
-    if (!selectedElementId) return;
-    const index = elements.findIndex((el) => el.id === selectedElementId);
-    if (index < elements.length - 1) {
-      const updated = [...elements];
-      const temp = updated[index];
-      updated[index] = updated[index + 1];
-      updated[index + 1] = temp;
-      pushHistory(updated);
+    if (count > 1) {
+      showToast(`Deleted ${count} elements`);
     }
+  }, [selectedElementIds, elements, pushHistory, showToast]);
+
+  // Duplicate selected elements
+  const handleDuplicateSelected = useCallback(() => {
+    if (selectedElementIds.length === 0) return;
+    const selected = elements.filter((el) => selectedElementIds.includes(el.id));
+    if (selected.length === 0) return;
+
+    // Map old groupId to a new shared groupId so grouped sets remain grouped when duplicated
+    const groupMapping = {};
+
+    const duplicates = selected.map((el) => {
+      let duplicateGroupId = undefined;
+      if (el.groupId) {
+        if (!groupMapping[el.groupId]) {
+          groupMapping[el.groupId] = 'grp-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+        }
+        duplicateGroupId = groupMapping[el.groupId];
+      }
+
+      return {
+        ...el,
+        id: 'el-' + Date.now() + '-' + Math.floor(Math.random() * 100000),
+        groupId: duplicateGroupId,
+        x: el.x !== undefined ? el.x + 20 : undefined,
+        y: el.y !== undefined ? el.y + 20 : undefined,
+        x1: el.x1 !== undefined ? el.x1 + 20 : undefined,
+        y1: el.y1 !== undefined ? el.y1 + 20 : undefined,
+        x2: el.x2 !== undefined ? el.x2 + 20 : undefined,
+        y2: el.y2 !== undefined ? el.y2 + 20 : undefined,
+        points: el.points ? el.points.map((p) => ({ x: p.x + 20, y: p.y + 20 })) : undefined,
+        seed: Math.floor(Math.random() * 100000),
+      };
+    });
+
+    const updated = [...elements, ...duplicates];
+    elementsRef.current = updated;
+    setSelectedElementIds(duplicates.map((d) => d.id));
+    pushHistory(updated);
+    showToast(`Duplicated ${duplicates.length} element${duplicates.length > 1 ? 's' : ''}`);
+  }, [selectedElementIds, elements, pushHistory, showToast]);
+
+  // Group selected elements
+  const handleGroupSelected = useCallback(() => {
+    if (selectedElementIds.length < 2) {
+      showToast('⚠️ Select at least 2 elements to group (Ctrl+G)');
+      return;
+    }
+
+    const newGroupId = 'grp-' + Date.now();
+    const updated = elements.map((el) => {
+      if (selectedElementIds.includes(el.id)) {
+        return { ...el, groupId: newGroupId };
+      }
+      return el;
+    });
+
+    elementsRef.current = updated;
+    pushHistory(updated);
+    showToast(`🔗 Grouped ${selectedElementIds.length} elements! (Ctrl+G)`);
+  }, [selectedElementIds, elements, pushHistory, showToast]);
+
+  // Ungroup selected elements
+  const handleUngroupSelected = useCallback(() => {
+    const selected = elements.filter((el) => selectedElementIds.includes(el.id));
+    const hasGroup = selected.some((el) => el.groupId);
+    if (!hasGroup) {
+      showToast('⚠️ Selected elements are not grouped');
+      return;
+    }
+
+    const updated = elements.map((el) => {
+      if (selectedElementIds.includes(el.id) && el.groupId) {
+        const { groupId, ...rest } = el;
+        return rest;
+      }
+      return el;
+    });
+
+    elementsRef.current = updated;
+    pushHistory(updated);
+    showToast('🔓 Ungrouped elements! (Ctrl+Shift+G)');
+  }, [selectedElementIds, elements, pushHistory, showToast]);
+
+  // Alignment tool for multi-selection
+  const handleAlign = useCallback(
+    (direction) => {
+      const selected = elements.filter((el) => selectedElementIds.includes(el.id));
+      if (selected.length < 2) return;
+
+      const itemsWithBounds = selected.map((el) => ({
+        el,
+        bounds: getElementBounds(el),
+      }));
+
+      const minX = Math.min(...itemsWithBounds.map((i) => i.bounds.minX));
+      const maxX = Math.max(...itemsWithBounds.map((i) => i.bounds.maxX));
+      const minY = Math.min(...itemsWithBounds.map((i) => i.bounds.minY));
+      const maxY = Math.max(...itemsWithBounds.map((i) => i.bounds.maxY));
+      const midX = (minX + maxX) / 2;
+      const midY = (minY + maxY) / 2;
+
+      const updated = elements.map((el) => {
+        if (!selectedElementIds.includes(el.id)) return el;
+        const b = getElementBounds(el);
+        let dx = 0;
+        let dy = 0;
+
+        if (direction === 'left') dx = minX - b.minX;
+        else if (direction === 'center-h') dx = midX - (b.minX + b.width / 2);
+        else if (direction === 'right') dx = maxX - b.maxX;
+        else if (direction === 'top') dy = minY - b.minY;
+        else if (direction === 'center-v') dy = midY - (b.minY + b.height / 2);
+        else if (direction === 'bottom') dy = maxY - b.maxY;
+
+        if (dx === 0 && dy === 0) return el;
+
+        if (el.type === 'line' || el.type === 'arrow') {
+          return { ...el, x1: el.x1 + dx, y1: el.y1 + dy, x2: el.x2 + dx, y2: el.y2 + dy };
+        }
+        if (el.type === 'pencil') {
+          return { ...el, points: el.points.map((p) => ({ x: p.x + dx, y: p.y + dy })) };
+        }
+        return { ...el, x: el.x + dx, y: el.y + dy };
+      });
+
+      elementsRef.current = updated;
+      pushHistory(updated);
+      showToast(`📐 Aligned elements!`);
+    },
+    [selectedElementIds, elements, pushHistory, showToast]
+  );
+
+  // Layering: Forward / Backward across multi-selection
+  const handleBringForward = () => {
+    if (selectedElementIds.length === 0) return;
+    const updated = [...elements];
+    for (let i = updated.length - 2; i >= 0; i--) {
+      if (selectedElementIds.includes(updated[i].id) && !selectedElementIds.includes(updated[i + 1].id)) {
+        const temp = updated[i];
+        updated[i] = updated[i + 1];
+        updated[i + 1] = temp;
+      }
+    }
+    elementsRef.current = updated;
+    pushHistory(updated);
   };
 
   const handleSendBackward = () => {
-    if (!selectedElementId) return;
-    const index = elements.findIndex((el) => el.id === selectedElementId);
-    if (index > 0) {
-      const updated = [...elements];
-      const temp = updated[index];
-      updated[index] = updated[index - 1];
-      updated[index - 1] = temp;
-      pushHistory(updated);
+    if (selectedElementIds.length === 0) return;
+    const updated = [...elements];
+    for (let i = 1; i < updated.length; i++) {
+      if (selectedElementIds.includes(updated[i].id) && !selectedElementIds.includes(updated[i - 1].id)) {
+        const temp = updated[i];
+        updated[i] = updated[i - 1];
+        updated[i - 1] = temp;
+      }
     }
+    elementsRef.current = updated;
+    pushHistory(updated);
   };
 
   // Commit inline text editing
@@ -398,8 +746,8 @@ export default function App() {
             return {
               ...el,
               text: trimmed,
-              width: el.type === 'sticky' ? el.width : calcWidth,
-              height: el.type === 'sticky' ? el.height : calcHeight,
+              width: el.type === 'text' ? calcWidth : el.width,
+              height: el.type === 'text' ? calcHeight : el.height,
             };
           }
           return el;
@@ -412,10 +760,277 @@ export default function App() {
     if (!isLocked) setActiveTool(TOOLS.SELECT);
   };
 
+  // Commit or cancel inline table cell editing
+  const handleFinishEditingCell = (commit = true, moveNext = false, movePrev = false) => {
+    if (!editingCell) return;
+    const { tableId, rowIndex, colIndex, text } = editingCell;
+
+    if (commit) {
+      const currentElements = elementsRef.current;
+      const targetTable = currentElements.find((el) => el.id === tableId);
+      if (targetTable && targetTable.type === 'table') {
+        const rows = targetTable.rows || (targetTable.data ? targetTable.data.length : 3);
+        const cols = targetTable.cols || (targetTable.data && targetTable.data[0] ? targetTable.data[0].length : 3);
+
+        const newData = targetTable.data
+          ? targetTable.data.map((r) => [...r])
+          : [];
+        while (newData.length < rows) {
+          newData.push(new Array(cols).fill(''));
+        }
+        while (newData[rowIndex].length < cols) {
+          newData[rowIndex].push('');
+        }
+        newData[rowIndex][colIndex] = text;
+
+        let nextRows = rows;
+        let nextHeight = targetTable.height;
+        let nextRow = rowIndex;
+        let nextCol = colIndex;
+
+        if (moveNext) {
+          if (colIndex + 1 < cols) {
+            nextCol = colIndex + 1;
+          } else if (rowIndex + 1 < rows) {
+            nextRow = rowIndex + 1;
+            nextCol = 0;
+          } else {
+            // End of table reached! Auto-add a new row for smooth spreadsheet/table entry
+            nextRows = rows + 1;
+            newData.push(new Array(cols).fill(''));
+            const rH = targetTable.height / rows;
+            nextHeight = Math.round(targetTable.height + Math.max(35, rH));
+            nextRow = rows;
+            nextCol = 0;
+          }
+        } else if (movePrev) {
+          if (colIndex > 0) {
+            nextCol = colIndex - 1;
+          } else if (rowIndex > 0) {
+            nextRow = rowIndex - 1;
+            nextCol = cols - 1;
+          }
+        }
+
+        const updatedTable = {
+          ...targetTable,
+          rows: nextRows,
+          height: nextHeight,
+          data: newData,
+        };
+
+        const updated = currentElements.map((el) => (el.id === tableId ? updatedTable : el));
+        elementsRef.current = updated;
+        pushHistory(updated);
+
+        if (moveNext || movePrev) {
+          const dims = getTableDimensions(updatedTable);
+          if (dims) {
+            setEditingCell({
+              tableId,
+              rowIndex: nextRow,
+              colIndex: nextCol,
+              cellX: dims.x + nextCol * dims.colWidth,
+              cellY: dims.y + nextRow * dims.rowHeight,
+              cellWidth: dims.colWidth,
+              cellHeight: dims.rowHeight,
+              text: (newData[nextRow] && newData[nextRow][nextCol] !== undefined)
+                ? String(newData[nextRow][nextCol])
+                : '',
+              fontSize: updatedTable.fontSize || 18,
+              fontFamily: updatedTable.fontFamily || "'Patrick Hand', cursive",
+            });
+            return;
+          }
+        }
+      }
+    }
+
+    setEditingCell(null);
+  };
+
+  // Table row and column management functions
+  const handleAddTableRow = useCallback((tableId) => {
+    const updated = elementsRef.current.map((el) => {
+      if (el.id === tableId && el.type === 'table') {
+        const currentRows = el.rows || (el.data ? el.data.length : 3);
+        const currentCols = el.cols || (el.data && el.data[0] ? el.data[0].length : 3);
+        const newRows = currentRows + 1;
+        const newData = el.data ? el.data.map((r) => [...r]) : [];
+        while (newData.length < currentRows) {
+          newData.push(new Array(currentCols).fill(''));
+        }
+        newData.push(new Array(currentCols).fill(''));
+        const rowHeight = el.height / currentRows;
+        return {
+          ...el,
+          rows: newRows,
+          data: newData,
+          height: Math.round(el.height + Math.max(35, rowHeight)),
+        };
+      }
+      return el;
+    });
+    elementsRef.current = updated;
+    pushHistory(updated);
+  }, [pushHistory]);
+
+  const handleRemoveTableRow = useCallback((tableId) => {
+    const updated = elementsRef.current.map((el) => {
+      if (el.id === tableId && el.type === 'table') {
+        const currentRows = el.rows || (el.data ? el.data.length : 3);
+        if (currentRows <= 1) return el;
+        const newRows = currentRows - 1;
+        const newData = (el.data || []).slice(0, newRows);
+        const rowHeight = el.height / currentRows;
+        return {
+          ...el,
+          rows: newRows,
+          data: newData,
+          height: Math.max(50, Math.round(el.height - rowHeight)),
+        };
+      }
+      return el;
+    });
+    elementsRef.current = updated;
+    pushHistory(updated);
+  }, [pushHistory]);
+
+  const handleAddTableCol = useCallback((tableId) => {
+    const updated = elementsRef.current.map((el) => {
+      if (el.id === tableId && el.type === 'table') {
+        const currentRows = el.rows || (el.data ? el.data.length : 3);
+        const currentCols = el.cols || (el.data && el.data[0] ? el.data[0].length : 3);
+        const newCols = currentCols + 1;
+        const newData = [];
+        for (let r = 0; r < currentRows; r++) {
+          const row = el.data && el.data[r] ? [...el.data[r]] : new Array(currentCols).fill('');
+          row.push(r === 0 && el.hasHeader ? `Col ${newCols}` : '');
+          newData.push(row);
+        }
+        const colWidth = el.width / currentCols;
+        return {
+          ...el,
+          cols: newCols,
+          data: newData,
+          width: Math.round(el.width + Math.max(60, colWidth)),
+        };
+      }
+      return el;
+    });
+    elementsRef.current = updated;
+    pushHistory(updated);
+  }, [pushHistory]);
+
+  const handleRemoveTableCol = useCallback((tableId) => {
+    const updated = elementsRef.current.map((el) => {
+      if (el.id === tableId && el.type === 'table') {
+        const currentRows = el.rows || (el.data ? el.data.length : 3);
+        const currentCols = el.cols || (el.data && el.data[0] ? el.data[0].length : 3);
+        if (currentCols <= 1) return el;
+        const newCols = currentCols - 1;
+        const newData = (el.data || []).map((row) => row.slice(0, newCols));
+        const colWidth = el.width / currentCols;
+        return {
+          ...el,
+          cols: newCols,
+          data: newData,
+          width: Math.max(80, Math.round(el.width - colWidth)),
+        };
+      }
+      return el;
+    });
+    elementsRef.current = updated;
+    pushHistory(updated);
+  }, [pushHistory]);
+
+  const handleToggleTableHeader = useCallback((tableId) => {
+    const updated = elementsRef.current.map((el) => {
+      if (el.id === tableId && el.type === 'table') {
+        return {
+          ...el,
+          hasHeader: !el.hasHeader,
+        };
+      }
+      return el;
+    });
+    elementsRef.current = updated;
+    pushHistory(updated);
+  }, [pushHistory]);
+
+  // Mind Map Auto-Branching handlers
+  const handleAddBranchChild = useCallback(
+    (sourceNode, direction = 'right') => {
+      if (!sourceNode) return;
+      const result = createBranchNode(sourceNode, direction, elementsRef.current, false);
+      if (!result) return;
+
+      const { newNode, newElements } = result;
+      elementsRef.current = newElements;
+      pushHistory(newElements);
+      setSelectedElementIds([newNode.id]);
+
+      // Automatically open inline text editor on the newly created child node!
+      setTimeout(() => {
+        setEditingText({
+          id: newNode.id,
+          type: newNode.type,
+          x: newNode.x,
+          y: newNode.y,
+          width: newNode.width,
+          height: newNode.height,
+          text: '',
+          isNew: false,
+          fontSize: newNode.fontSize,
+          fontFamily: newNode.fontFamily,
+        });
+      }, 40);
+
+      showToast('🧠 Child branch added! Type idea...');
+    },
+    [pushHistory, showToast]
+  );
+
+  const handleAddBranchSibling = useCallback(
+    (sourceNode) => {
+      if (!sourceNode) return;
+      const result = createBranchNode(sourceNode, 'bottom', elementsRef.current, true);
+      if (!result) return;
+
+      const { newNode, newElements } = result;
+      elementsRef.current = newElements;
+      pushHistory(newElements);
+      setSelectedElementIds([newNode.id]);
+
+      // Automatically open inline text editor on the newly created sibling node!
+      setTimeout(() => {
+        setEditingText({
+          id: newNode.id,
+          type: newNode.type,
+          x: newNode.x,
+          y: newNode.y,
+          width: newNode.width,
+          height: newNode.height,
+          text: '',
+          isNew: false,
+          fontSize: newNode.fontSize,
+          fontFamily: newNode.fontFamily,
+        });
+      }, 40);
+
+      showToast('🌿 Sibling branch added! Type idea...');
+    },
+    [pushHistory, showToast]
+  );
+
   // Mouse Down Handler
   const handleMouseDown = (e) => {
     if (editingText) {
       handleFinishEditingText();
+      return;
+    }
+    if (editingCell) {
+      handleFinishEditingCell(true);
       return;
     }
 
@@ -432,6 +1047,16 @@ export default function App() {
     if (activeTool === TOOLS.HAND || isSpacePressed || e.button === 1) {
       actionRef.current = 'panning';
       setAction('panning');
+      return;
+    }
+
+    // Image mode: Click on canvas to pick image file
+    if (activeTool === TOOLS.IMAGE) {
+      handleTriggerImageUpload();
+      if (!isLocked) {
+        setActiveTool(TOOLS.SELECT);
+        activeToolRef.current = TOOLS.SELECT;
+      }
       return;
     }
 
@@ -453,7 +1078,7 @@ export default function App() {
 
     // 3. Selection mode
     if (activeTool === TOOLS.SELECT) {
-      // Check if clicked resize handle of already selected element
+      // Check if clicked resize handle of already selected single element
       if (selectedElement) {
         const handle = getHitResizeHandle(x, y, selectedElement, zoom);
         if (handle) {
@@ -474,11 +1099,38 @@ export default function App() {
       }
 
       if (hitElement) {
-        setSelectedElementId(hitElement.id);
-        actionRef.current = 'moving';
-        setAction('moving');
+        // Find all elements belonging to the same group as hitElement (if grouped)
+        const groupMembers = hitElement.groupId
+          ? elements.filter((el) => el.groupId === hitElement.groupId).map((el) => el.id)
+          : [hitElement.id];
+
+        if (e.shiftKey) {
+          // Shift + Click: Toggle selection membership
+          const allAlreadyIn = groupMembers.every((id) => selectedElementIds.includes(id));
+          if (allAlreadyIn) {
+            setSelectedElementIds((prev) => prev.filter((id) => !groupMembers.includes(id)));
+          } else {
+            setSelectedElementIds((prev) => Array.from(new Set([...prev, ...groupMembers])));
+          }
+          return;
+        }
+
+        // Normal Click:
+        // If the clicked element is already in the multi-selection, keep the full selection so user can drag all items together!
+        if (selectedElementIds.includes(hitElement.id)) {
+          actionRef.current = 'moving';
+          setAction('moving');
+        } else {
+          // New selection: select this element (or its group)
+          setSelectedElementIds(groupMembers);
+          actionRef.current = 'moving';
+          setAction('moving');
+        }
       } else {
-        setSelectedElementId(null);
+        // Clicked on empty canvas
+        if (!e.shiftKey) {
+          setSelectedElementIds([]);
+        }
         actionRef.current = 'selecting';
         setAction('selecting');
         setSelectionBox({ x1: x, y1: y, x2: x, y2: y });
@@ -533,6 +1185,82 @@ export default function App() {
       return;
     }
 
+    // 5.5. Table Tool Click / Drag
+    if (activeTool === TOOLS.TABLE) {
+      actionRef.current = 'drawing';
+      setAction('drawing');
+
+      const defaultRows = 3;
+      const defaultCols = 3;
+      const defaultData = [
+        ['Feature', 'Status', 'Priority'],
+        ['Task 1', 'In Progress', 'High'],
+        ['Task 2', 'Done', 'Normal'],
+      ];
+
+      const newTable = {
+        id: 'el-table-' + Date.now(),
+        type: TOOLS.TABLE,
+        x,
+        y,
+        width: 0,
+        height: 0,
+        rows: defaultRows,
+        cols: defaultCols,
+        data: defaultData,
+        hasHeader: true,
+        strokeColor: currentStyle.strokeColor,
+        backgroundColor: currentStyle.backgroundColor,
+        strokeWidth: currentStyle.strokeWidth,
+        strokeStyle: currentStyle.strokeStyle,
+        fillStyle: currentStyle.fillStyle,
+        roughness: currentStyle.roughness,
+        fontSize: 18,
+        fontFamily: currentStyle.fontFamily || "'Patrick Hand', cursive",
+        seed: Math.floor(Math.random() * 100000),
+        opacity: currentStyle.opacity,
+      };
+
+      currentElementRef.current = newTable;
+      setCurrentElement(newTable);
+      return;
+    }
+
+    // 5.6. Mind Map Root Tool Click
+    if (activeTool === TOOLS.MINDMAP) {
+      const rootId = 'el-node-' + Date.now();
+      const newRoot = {
+        id: rootId,
+        type: 'rectangle',
+        x: Math.round(x - 90),
+        y: Math.round(y - 28),
+        width: 180,
+        height: 56,
+        text: 'Central Idea',
+        fontSize: 22,
+        fontFamily: "'Patrick Hand', cursive",
+        strokeColor: '#827fe2',
+        backgroundColor: 'rgba(105, 101, 219, 0.25)',
+        strokeWidth: 2.5,
+        strokeStyle: 'solid',
+        fillStyle: 'solid',
+        roughness: 1.0,
+        seed: Math.floor(Math.random() * 100000),
+        opacity: 100,
+      };
+
+      const updated = [...elements, newRoot];
+      elementsRef.current = updated;
+      pushHistory(updated);
+      setSelectedElementId(newRoot.id);
+      showToast('🧠 Central Topic created! Press Tab to add child branches.');
+      if (!isLockedRef.current) {
+        setActiveTool(TOOLS.SELECT);
+        activeToolRef.current = TOOLS.SELECT;
+      }
+      return;
+    }
+
     // 6. Shape / Line / Pencil Drawing
     actionRef.current = 'drawing';
     setAction('drawing');
@@ -579,6 +1307,7 @@ export default function App() {
 
   // Mouse Move Handler
   const handleMouseMove = (e) => {
+    lastMousePosRef.current = { clientX: e.clientX, clientY: e.clientY };
     const { x, y } = getCanvasCoords(e.clientX, e.clientY);
     const activeTool = activeToolRef.current;
     const currentAction = actionRef.current;
@@ -671,16 +1400,16 @@ export default function App() {
       return;
     }
 
-    // Moving selected element
-    if (currentAction === 'moving' && selectedElementId) {
+    // Moving selected element(s)
+    if (currentAction === 'moving' && selectedElementIds.length > 0) {
       const dx = (e.clientX - dragStartRef.current.x) / zoom;
       const dy = (e.clientY - dragStartRef.current.y) / zoom;
       dragStartRef.current = { x: e.clientX, y: e.clientY };
 
-      let movedShape = null;
+      const movedShapes = [];
 
       const updatedElements = elements.map((el) => {
-        if (el.id === selectedElementId) {
+        if (selectedElementIds.includes(el.id)) {
           if (el.type === 'line' || el.type === 'arrow') {
             const updatedLine = {
               ...el,
@@ -689,7 +1418,7 @@ export default function App() {
               x2: el.x2 + dx,
               y2: el.y2 + dy,
             };
-            movedShape = updatedLine;
+            movedShapes.push(updatedLine);
             return updatedLine;
           }
           if (el.type === 'pencil') {
@@ -697,7 +1426,7 @@ export default function App() {
               ...el,
               points: el.points.map((p) => ({ x: p.x + dx, y: p.y + dy })),
             };
-            movedShape = updatedPencil;
+            movedShapes.push(updatedPencil);
             return updatedPencil;
           }
           const updatedShape = {
@@ -705,14 +1434,17 @@ export default function App() {
             x: el.x + dx,
             y: el.y + dy,
           };
-          movedShape = updatedShape;
+          movedShapes.push(updatedShape);
           return updatedShape;
         }
         return el;
       });
 
-      // Automatically move connected arrows and lines with this shape!
-      const finalElements = updateConnectedArrows(updatedElements, movedShape);
+      // Automatically move connected arrows and lines with any shape that moved
+      let finalElements = updatedElements;
+      for (const shape of movedShapes) {
+        finalElements = updateConnectedArrows(finalElements, shape);
+      }
       elementsRef.current = finalElements;
       setElements(finalElements);
       return;
@@ -779,15 +1511,41 @@ export default function App() {
       let newW = selectedElement.width;
       let newH = selectedElement.height;
 
-      if (resizeHandle.includes('e')) newW = x - bounds.minX;
-      if (resizeHandle.includes('s')) newH = y - bounds.minY;
-      if (resizeHandle.includes('w')) {
-        newW = bounds.maxX - x;
-        newX = x;
+      if (selectedElement.type === 'image' && ['nw', 'ne', 'se', 'sw'].includes(resizeHandle)) {
+        const ar = selectedElement.aspectRatio || (bounds.width / (bounds.height || 1)) || 1;
+        if (resizeHandle === 'se') {
+          newW = Math.max(20, x - bounds.minX);
+          newH = Math.round(newW / ar);
+        } else if (resizeHandle === 'sw') {
+          newW = Math.max(20, bounds.maxX - x);
+          newH = Math.round(newW / ar);
+          newX = Math.round(bounds.maxX - newW);
+        } else if (resizeHandle === 'ne') {
+          newW = Math.max(20, x - bounds.minX);
+          newH = Math.round(newW / ar);
+          newY = Math.round(bounds.maxY - newH);
+        } else if (resizeHandle === 'nw') {
+          newW = Math.max(20, bounds.maxX - x);
+          newH = Math.round(newW / ar);
+          newX = Math.round(bounds.maxX - newW);
+          newY = Math.round(bounds.maxY - newH);
+        }
+      } else {
+        if (resizeHandle.includes('e')) newW = x - bounds.minX;
+        if (resizeHandle.includes('s')) newH = y - bounds.minY;
+        if (resizeHandle.includes('w')) {
+          newW = bounds.maxX - x;
+          newX = x;
+        }
+        if (resizeHandle.includes('n')) {
+          newH = bounds.maxY - y;
+          newY = y;
+        }
       }
-      if (resizeHandle.includes('n')) {
-        newH = bounds.maxY - y;
-        newY = y;
+
+      if (selectedElement.type === 'table') {
+        newW = Math.max(100, newW);
+        newH = Math.max(50, newH);
       }
 
       const updatedShape = { ...selectedElement, x: newX, y: newY, width: newW, height: newH };
@@ -817,7 +1575,24 @@ export default function App() {
 
     if (activeAct === 'drawing' && drawnEl) {
       let isValid = true;
-      if (drawnEl.type === TOOLS.PENCIL) {
+      if (drawnEl.type === TOOLS.TABLE) {
+        if (Math.abs(drawnEl.width) < 15 && Math.abs(drawnEl.height) < 15) {
+          drawnEl.width = 450;
+          drawnEl.height = 210;
+        } else {
+          if (drawnEl.width < 0) {
+            drawnEl.x = drawnEl.x + drawnEl.width;
+            drawnEl.width = Math.abs(drawnEl.width);
+          }
+          if (drawnEl.height < 0) {
+            drawnEl.y = drawnEl.y + drawnEl.height;
+            drawnEl.height = Math.abs(drawnEl.height);
+          }
+          drawnEl.width = Math.max(120, drawnEl.width);
+          drawnEl.height = Math.max(60, drawnEl.height);
+        }
+        isValid = true;
+      } else if (drawnEl.type === TOOLS.PENCIL) {
         isValid = drawnEl.points.length > 1;
       } else if (drawnEl.type === TOOLS.LINE || drawnEl.type === TOOLS.ARROW) {
         isValid = Math.hypot(drawnEl.x2 - drawnEl.x1, drawnEl.y2 - drawnEl.y1) > 4;
@@ -844,11 +1619,19 @@ export default function App() {
     }
 
     if (activeAct === 'selecting' && selectionBox) {
-      // Find element inside selection box
-      const hit = elementsRef.current.find((el) => isElementInBox(el, selectionBox));
-      if (hit) {
-        setSelectedElementId(hit.id);
+      // Find all elements inside selection box
+      const hits = elementsRef.current.filter((el) => isElementInBox(el, selectionBox));
+
+      const allSelectedIds = new Set();
+      for (const el of hits) {
+        allSelectedIds.add(el.id);
+        if (el.groupId) {
+          elementsRef.current
+            .filter((o) => o.groupId === el.groupId)
+            .forEach((o) => allSelectedIds.add(o.id));
+        }
       }
+      setSelectedElementIds(Array.from(allSelectedIds));
       setSelectionBox(null);
     }
 
@@ -863,12 +1646,12 @@ export default function App() {
     for (let i = elements.length - 1; i >= 0; i--) {
       const el = elements[i];
       if (isPointInElement(x, y, el, 8 / zoom)) {
-        if (el.type === 'text' || el.type === 'sticky') {
+        if (['text', 'sticky', 'rectangle', 'ellipse', 'diamond'].includes(el.type)) {
           setEditingText({
             id: el.id,
             type: el.type,
-            x: el.x,
-            y: el.y,
+            x: el.type === 'text' ? el.x : (el.x + (el.width - Math.min(el.width, 180)) / 2),
+            y: el.type === 'text' ? el.y : (el.y + (el.height - Math.min(el.height, 44)) / 2),
             width: el.width,
             height: el.height,
             text: el.text || '',
@@ -877,6 +1660,27 @@ export default function App() {
             fontFamily: el.fontFamily,
           });
           return;
+        }
+
+        if (el.type === 'table') {
+          const cellInfo = getCellAtPoint(x, y, el);
+          if (cellInfo) {
+            setEditingCell({
+              tableId: el.id,
+              rowIndex: cellInfo.rowIndex,
+              colIndex: cellInfo.colIndex,
+              cellX: cellInfo.cellX,
+              cellY: cellInfo.cellY,
+              cellWidth: cellInfo.cellWidth,
+              cellHeight: cellInfo.cellHeight,
+              text: (el.data && el.data[cellInfo.rowIndex] && el.data[cellInfo.rowIndex][cellInfo.colIndex] !== undefined)
+                ? String(el.data[cellInfo.rowIndex][cellInfo.colIndex])
+                : '',
+              fontSize: el.fontSize || 18,
+              fontFamily: el.fontFamily || "'Patrick Hand', cursive",
+            });
+            return;
+          }
         }
       }
     }
@@ -1046,6 +1850,7 @@ export default function App() {
       if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) {
         if (e.key === 'Escape') {
           handleFinishEditingText();
+          handleFinishEditingCell(false);
         }
         return;
       }
@@ -1078,11 +1883,48 @@ export default function App() {
         return;
       }
 
+      // Select All: Ctrl+A
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
+        e.preventDefault();
+        const allIds = elements.map((el) => el.id);
+        setSelectedElementIds(allIds);
+        showToast(`Selected all ${allIds.length} elements`);
+        return;
+      }
+
+      // Group: Ctrl+G / Ungroup: Ctrl+Shift+G
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'g' || e.key === 'G')) {
+        e.preventDefault();
+        if (e.shiftKey) {
+          handleUngroupSelected();
+        } else {
+          handleGroupSelected();
+        }
+        return;
+      }
+
       // Delete: Backspace or Delete
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
         handleDeleteSelected();
         return;
+      }
+
+      // Mind Map Auto-Branching Hotkeys: Tab (Child) & Enter (Sibling)
+      if (
+        selectedElement &&
+        ['rectangle', 'sticky', 'ellipse', 'diamond', 'text'].includes(selectedElement.type)
+      ) {
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          handleAddBranchChild(selectedElement, 'right');
+          return;
+        }
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleAddBranchSibling(selectedElement);
+          return;
+        }
       }
 
       // Tool Switch Shortcuts
@@ -1126,12 +1968,21 @@ export default function App() {
         case '9':
           setActiveTool(TOOLS.STICKY);
           break;
+        case 'b':
+          setActiveTool(TOOLS.TABLE);
+          break;
+        case 'm':
+          setActiveTool(TOOLS.MINDMAP);
+          break;
+        case 'i':
+          handleTriggerImageUpload();
+          break;
         case 'e':
         case '0':
           setActiveTool(TOOLS.ERASER);
           break;
         case 'escape':
-          setSelectedElementId(null);
+          setSelectedElementIds([]);
           setActiveTool(TOOLS.SELECT);
           break;
         default:
@@ -1156,7 +2007,10 @@ export default function App() {
     handleRedo,
     handleDeleteSelected,
     handleDuplicateSelected,
+    handleGroupSelected,
+    handleUngroupSelected,
     editingText,
+    elements,
   ]);
 
   // Cursor style based on active tool / space key
@@ -1192,11 +2046,22 @@ export default function App() {
 
   return (
     <div
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
       className={`relative w-screen h-screen overflow-hidden select-none ${
         isDarkMode ? 'bg-[#121212] text-white' : 'bg-[#f8f9fa] text-neutral-800'
       }`}
       style={{ cursor: getCursor() }}
     >
+      {/* Hidden file input for image upload */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/*"
+        onChange={handleImageFileSelect}
+        className="hidden"
+      />
+
       {/* Top Floating Toolbar */}
       <Toolbar
         activeTool={activeTool}
@@ -1206,6 +2071,7 @@ export default function App() {
         isDarkMode={isDarkMode}
         onToggleProperties={() => setIsPropertiesOpen((prev) => !prev)}
         isPropertiesOpen={isPropertiesOpen}
+        onImageUpload={handleTriggerImageUpload}
       />
 
       {/* Top Left Menu Button & Dropdown */}
@@ -1233,12 +2099,23 @@ export default function App() {
       {/* Floating Style Properties Panel */}
       <PropertiesPanel
         selectedElement={selectedElement}
+        selectedElements={selectedElements}
         currentStyle={currentStyle}
         onUpdateStyle={handleUpdateStyle}
         onDuplicate={handleDuplicateSelected}
         onDelete={handleDeleteSelected}
         onBringForward={handleBringForward}
         onSendBackward={handleSendBackward}
+        onGroup={handleGroupSelected}
+        onUngroup={handleUngroupSelected}
+        onAlign={handleAlign}
+        onAddTableRow={handleAddTableRow}
+        onRemoveTableRow={handleRemoveTableRow}
+        onAddTableCol={handleAddTableCol}
+        onRemoveTableCol={handleRemoveTableCol}
+        onToggleTableHeader={handleToggleTableHeader}
+        onAddBranchChild={handleAddBranchChild}
+        onAddBranchSibling={handleAddBranchSibling}
         isDarkMode={isDarkMode}
         isOpen={isPropertiesOpen}
         setIsOpen={setIsPropertiesOpen}
@@ -1288,6 +2165,8 @@ export default function App() {
         onMouseLeave={() => eraserFxRef.current.clearCursor()}
         onDoubleClick={handleDoubleClick}
         onWheel={handleWheel}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
         className="block absolute inset-0 touch-none"
       />
 
@@ -1368,6 +2247,233 @@ export default function App() {
         </div>
       )}
 
+      {/* Floating Table Action Bar (shown when a Table is selected) */}
+      {selectedElement && selectedElement.type === 'table' && !editingCell && (
+        <div
+          onMouseDown={(e) => e.stopPropagation()}
+          onMouseUp={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: 'absolute',
+            left: `${getScreenCoords(
+              getElementBounds(selectedElement).minX + getElementBounds(selectedElement).width / 2,
+              getElementBounds(selectedElement).minY
+            ).x}px`,
+            top: `${getScreenCoords(
+              getElementBounds(selectedElement).minX,
+              getElementBounds(selectedElement).minY
+            ).y - 48}px`,
+            transform: 'translateX(-50%)',
+            zIndex: 45,
+          }}
+          className={`flex items-center gap-1 p-1 rounded-xl border shadow-xl backdrop-blur-md select-none ${
+            isDarkMode
+              ? 'bg-[#1e1e24]/95 border-[#34343e] text-neutral-200 shadow-black/40'
+              : 'bg-white/95 border-neutral-200 text-neutral-800 shadow-neutral-300/40'
+          }`}
+        >
+          <span className="text-[11px] font-mono font-semibold px-2 text-[#9794f0]">
+            {selectedElement.rows || 3}×{selectedElement.cols || 3}
+          </span>
+          <div className={`h-4 w-[1px] ${isDarkMode ? 'bg-white/10' : 'bg-neutral-200'}`} />
+          <button
+            onClick={() => handleAddTableRow(selectedElement.id)}
+            title="Add row at bottom"
+            className="px-2 py-1 rounded-lg text-xs font-medium hover:bg-[#6965db]/20 text-[#827fe2] hover:text-[#9794f0] transition-colors flex items-center gap-1"
+          >
+            <span>+ Row</span>
+          </button>
+          <button
+            onClick={() => handleRemoveTableRow(selectedElement.id)}
+            disabled={(selectedElement.rows || 3) <= 1}
+            title="Remove last row"
+            className="px-2 py-1 rounded-lg text-xs font-medium hover:bg-red-500/15 text-neutral-400 hover:text-red-400 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-neutral-400 transition-colors"
+          >
+            <span>- Row</span>
+          </button>
+          <div className={`h-4 w-[1px] ${isDarkMode ? 'bg-white/10' : 'bg-neutral-200'}`} />
+          <button
+            onClick={() => handleAddTableCol(selectedElement.id)}
+            title="Add column on right"
+            className="px-2 py-1 rounded-lg text-xs font-medium hover:bg-[#6965db]/20 text-[#827fe2] hover:text-[#9794f0] transition-colors flex items-center gap-1"
+          >
+            <span>+ Col</span>
+          </button>
+          <button
+            onClick={() => handleRemoveTableCol(selectedElement.id)}
+            disabled={(selectedElement.cols || 3) <= 1}
+            title="Remove last column"
+            className="px-2 py-1 rounded-lg text-xs font-medium hover:bg-red-500/15 text-neutral-400 hover:text-red-400 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-neutral-400 transition-colors"
+          >
+            <span>- Col</span>
+          </button>
+          <div className={`h-4 w-[1px] ${isDarkMode ? 'bg-white/10' : 'bg-neutral-200'}`} />
+          <button
+            onClick={() => handleToggleTableHeader(selectedElement.id)}
+            title="Toggle Header Row styling"
+            className={`px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
+              selectedElement.hasHeader
+                ? 'bg-[#6965db] text-white shadow-sm'
+                : 'hover:bg-white/10 text-neutral-400'
+            }`}
+          >
+            Header
+          </button>
+        </div>
+      )}
+
+      {/* Inline Table Cell Editor */}
+      {editingCell && (
+        <div
+          onMouseDown={(e) => e.stopPropagation()}
+          onMouseUp={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => e.stopPropagation()}
+          style={{
+            position: 'absolute',
+            left: `${getScreenCoords(editingCell.cellX, editingCell.cellY).x}px`,
+            top: `${getScreenCoords(editingCell.cellX, editingCell.cellY).y}px`,
+            width: `${editingCell.cellWidth * zoom}px`,
+            height: `${editingCell.cellHeight * zoom}px`,
+            zIndex: 65,
+          }}
+          className="select-auto flex items-center justify-center p-0.5"
+        >
+          <textarea
+            ref={cellInputRef}
+            autoFocus
+            value={editingCell.text}
+            onChange={(e) =>
+              setEditingCell((prev) => ({ ...prev, text: e.target.value }))
+            }
+            onKeyDown={(e) => {
+              if (e.key === 'Tab') {
+                e.preventDefault();
+                handleFinishEditingCell(true, !e.shiftKey, e.shiftKey);
+              } else if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleFinishEditingCell(true);
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                handleFinishEditingCell(false);
+              }
+            }}
+            style={{
+              fontSize: `${(editingCell.fontSize || 18) * zoom}px`,
+              fontFamily: editingCell.fontFamily,
+              color: isDarkMode ? '#ffffff' : '#1e1e1e',
+              backgroundColor: isDarkMode ? 'rgba(30, 30, 36, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+            }}
+            className="w-full h-full p-1.5 border-2 border-[#6965db] rounded-lg outline-none resize-none shadow-xl leading-snug"
+          />
+        </div>
+      )}
+
+      {/* Mind Map Branch Handles on 4 Sides of Selected Shape */}
+      {selectedElement &&
+        ['rectangle', 'sticky', 'ellipse', 'diamond', 'text'].includes(selectedElement.type) &&
+        !editingText &&
+        !editingCell &&
+        action === 'none' &&
+        selectedElements.length === 1 && (() => {
+          const b = getElementBounds(selectedElement);
+          const cx = b.minX + b.width / 2;
+          const cy = b.minY + b.height / 2;
+
+          const rightPos = getScreenCoords(b.maxX, cy);
+          const bottomPos = getScreenCoords(cx, b.maxY);
+          const leftPos = getScreenCoords(b.minX, cy);
+          const topPos = getScreenCoords(cx, b.minY);
+
+          return (
+            <>
+              {/* Right Branch Button (Add Child) */}
+              <button
+                type="button"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAddBranchChild(selectedElement, 'right');
+                }}
+                title="Add Child Branch (Shortcut: Tab)"
+                style={{
+                  position: 'absolute',
+                  left: `${rightPos.x + 8}px`,
+                  top: `${rightPos.y}px`,
+                  transform: 'translateY(-50%)',
+                  zIndex: 42,
+                }}
+                className="w-5 h-5 rounded-full bg-[#6965db] hover:bg-[#5b57d1] text-white flex items-center justify-center text-xs font-bold shadow-lg border border-white/40 hover:scale-125 transition-all select-none cursor-pointer"
+              >
+                +
+              </button>
+
+              {/* Bottom Branch Button (Add Child / Sibling Down) */}
+              <button
+                type="button"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAddBranchChild(selectedElement, 'bottom');
+                }}
+                title="Add Branch Below (Shortcut: Enter)"
+                style={{
+                  position: 'absolute',
+                  left: `${bottomPos.x}px`,
+                  top: `${bottomPos.y + 8}px`,
+                  transform: 'translateX(-50%)',
+                  zIndex: 42,
+                }}
+                className="w-5 h-5 rounded-full bg-[#6965db] hover:bg-[#5b57d1] text-white flex items-center justify-center text-xs font-bold shadow-lg border border-white/40 hover:scale-125 transition-all select-none cursor-pointer"
+              >
+                +
+              </button>
+
+              {/* Left Branch Button (Add Child Left) */}
+              <button
+                type="button"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAddBranchChild(selectedElement, 'left');
+                }}
+                title="Add Branch Left"
+                style={{
+                  position: 'absolute',
+                  left: `${leftPos.x - 8}px`,
+                  top: `${leftPos.y}px`,
+                  transform: 'translate(-100%, -50%)',
+                  zIndex: 42,
+                }}
+                className="w-5 h-5 rounded-full bg-[#6965db] hover:bg-[#5b57d1] text-white flex items-center justify-center text-xs font-bold shadow-lg border border-white/40 hover:scale-125 transition-all select-none cursor-pointer"
+              >
+                +
+              </button>
+
+              {/* Top Branch Button (Add Branch Up) */}
+              <button
+                type="button"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAddBranchChild(selectedElement, 'top');
+                }}
+                title="Add Branch Up"
+                style={{
+                  position: 'absolute',
+                  left: `${topPos.x}px`,
+                  top: `${topPos.y - 8}px`,
+                  transform: 'translate(-50%, -100%)',
+                  zIndex: 42,
+                }}
+                className="w-5 h-5 rounded-full bg-[#6965db] hover:bg-[#5b57d1] text-white flex items-center justify-center text-xs font-bold shadow-lg border border-white/40 hover:scale-125 transition-all select-none cursor-pointer"
+              >
+                +
+              </button>
+            </>
+          );
+        })()}
+
       {/* Export Modal (JPG / PNG / JSON) */}
       <ExportModal
         isOpen={isExportOpen}
@@ -1390,6 +2496,21 @@ export default function App() {
         onDismiss={() => setShowIntro(false)}
         isDarkMode={isDarkMode}
       />
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-16 left-1/2 -translate-x-1/2 z-50 pointer-events-none animate-in fade-in slide-in-from-bottom-2 duration-150">
+          <div
+            className={`px-4 py-2 rounded-xl text-xs font-semibold shadow-2xl backdrop-blur-md border ${
+              isDarkMode
+                ? 'bg-[#1e1e24]/95 text-white border-white/10 shadow-black/50'
+                : 'bg-white/95 text-neutral-800 border-neutral-200 shadow-neutral-400/40'
+            }`}
+          >
+            {toastMessage}
+          </div>
+        </div>
+      )}
 
       {/* Vercel Analytics */}
       <Analytics />

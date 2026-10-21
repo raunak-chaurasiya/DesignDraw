@@ -84,7 +84,7 @@ export default function IntroCard({
 
         {/* Footer Hint */}
         <p className="text-[11px] text-neutral-400">
-          💡 Select any tool above or tap anywhere to start drawing!
+          💡 Select any tool above, tap anywhere, or paste images with <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono text-[10px] text-white">Ctrl + V</kbd>!
         </p>
       </div>
     </div>
