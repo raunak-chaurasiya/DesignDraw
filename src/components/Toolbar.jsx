@@ -1,22 +1,24 @@
 import React from 'react';
-import {
-  Lock,
-  Unlock,
-  Hand,
-  MousePointer,
-  Square,
-  Diamond,
-  Circle,
-  MoveRight,
-  Minus,
-  Pencil,
-  Type,
-  StickyNote,
-  Table,
-  Network,
-  Image as ImageIcon,
-  Eraser,
-  Palette,
+import { 
+  Lock, 
+  Unlock, 
+  Hand, 
+  MousePointer, 
+  Square, 
+  Diamond, 
+  Circle, 
+  MoveRight, 
+  Minus, 
+  Pencil, 
+  Type, 
+  StickyNote, 
+  Table, 
+  Network, 
+  Image as ImageIcon, 
+  Eraser, 
+  Palette, 
+  Users, 
+  Radio
 } from 'lucide-react';
 import { TOOLS } from '../constants';
 
@@ -46,6 +48,9 @@ export default function Toolbar({
   onToggleProperties,
   isPropertiesOpen,
   onImageUpload,
+  onOpenCollab,
+  connectedPeerCount = 0,
+  isCollabActive = false,
 }) {
   return (
     <div className="fixed top-3 sm:top-4 left-1/2 -translate-x-1/2 z-40 select-none max-w-[calc(100vw-4.5rem)] sm:max-w-none">
@@ -140,6 +145,44 @@ export default function Toolbar({
               }`}
             >
               <Palette size={17} />
+            </button>
+          </>
+        )}
+
+        {/* Live Collaboration Button */}
+        {onOpenCollab && (
+          <>
+            <div
+              className={`h-5 w-[1px] mx-0.5 shrink-0 ${
+                isDarkMode ? 'bg-[#3b3b47]' : 'bg-neutral-200'
+              }`}
+            />
+            <button
+              onClick={onOpenCollab}
+              title={isCollabActive ? `Live Session (${connectedPeerCount + 1} users)` : 'Live Collaboration (Share Link / QR)'}
+              className={`relative px-2 sm:px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shrink-0 text-xs font-semibold ${
+                isCollabActive
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                  : isDarkMode
+                  ? 'hover:bg-[#2e2e38] text-neutral-300 hover:text-white'
+                  : 'hover:bg-neutral-100 text-neutral-700 hover:text-neutral-900'
+              }`}
+            >
+              {isCollabActive ? (
+                <>
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                  <Users size={15} />
+                  <span className="hidden sm:inline font-mono">{connectedPeerCount + 1}</span>
+                </>
+              ) : (
+                <>
+                  <Radio size={15} className="text-[#827fe2]" />
+                  <span className="hidden sm:inline">Collab</span>
+                </>
+              )}
             </button>
           </>
         )}

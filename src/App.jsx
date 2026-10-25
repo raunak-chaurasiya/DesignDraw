@@ -7,6 +7,8 @@ import MenuModal from './components/MenuModal';
 import ExportModal from './components/ExportModal';
 import HelpModal from './components/HelpModal';
 import IntroCard from './components/IntroCard';
+import QrShareModal from './components/qr-share-modal';
+import { getPeerManager } from './utils/peer-connection';
 import { Analytics } from "@vercel/analytics/react";
 import { TOOLS, DEFAULT_STYLE } from './constants';
 import {
@@ -99,6 +101,30 @@ export default function App() {
     typeof window !== 'undefined' ? window.innerWidth > 768 : false
   );
 
+  // Live Collaboration State
+  const [isCollabOpen, setIsCollabOpen] = useState(false);
+  const [isCollabActive, setIsCollabActive] = useState(false);
+  const [connectedPeerCount, setConnectedPeerCount] = useState(0);
+  const [myPeerId, setMyPeerId] = useState(null);
+  const [shareUrl, setShareUrl] = useState('');
+  const [isHost, setIsHost] = useState(true);
+  const [remoteCursors, setRemoteCursors] = useState({}); // peerId -> { x, y, name, color, lastSeen }
+
+  const peerManagerRef = useRef(null);
+  const isCollabActiveRef = useRef(false);
+  isCollabActiveRef.current = isCollabActive;
+  const myPeerIdRef = useRef(null);
+  myPeerIdRef.current = myPeerId;
+  const lastCursorBroadcastRef = useRef(0);
+
+  // Random vibrant collaborator profile for cursor tag
+  const userProfileRef = useRef({
+    name: `User ${Math.floor(100 + Math.random() * 900)}`,
+    color: ['#6965db', '#e03131', '#2f9e44', '#f08c00', '#1098ad', '#d6336c', '#7048e8', '#0ca678'][
+      Math.floor(Math.random() * 8)
+    ],
+  });
+
   // Select tool and dismiss intro automatically
   const handleSelectTool = (tool) => {
     setActiveTool(tool);
@@ -111,13 +137,23 @@ export default function App() {
 
   // Helper: push new history state
   const pushHistory = useCallback(
-    (newElements) => {
+    (newElements, shouldBroadcast = true) => {
       const nextHistory = history.slice(0, historyIndex + 1);
       nextHistory.push(newElements);
       if (nextHistory.length > 50) nextHistory.shift();
       setHistory(nextHistory);
       setHistoryIndex(nextHistory.length - 1);
       setElements(newElements);
+      elementsRef.current = newElements;
+
+      // Broadcast update to all live collaborators
+      if (shouldBroadcast && isCollabActiveRef.current && peerManagerRef.current) {
+        peerManagerRef.current.broadcast({
+          type: 'CANVAS_UPDATE',
+          elements: newElements,
+          senderId: myPeerIdRef.current,
+        });
+      }
     },
     [history, historyIndex]
   );
@@ -173,6 +209,133 @@ export default function App() {
     toastTimeoutRef.current = setTimeout(() => {
       setToastMessage(null);
     }, 2500);
+  }, []);
+
+  // Live Collaboration Connection Handlers
+  const startCollaboration = useCallback(async (targetRoomId = null) => {
+    try {
+      const manager = getPeerManager();
+      peerManagerRef.current = manager;
+
+      manager.onPeerJoin = (joinedId) => {
+        setConnectedPeerCount(manager.getConnectedPeerCount());
+        showToast('A collaborator joined the whiteboard!');
+        // Send current canvas elements snapshot to newly joined peer
+        manager.sendTo(joinedId, {
+          type: 'INIT_CANVAS',
+          elements: elementsRef.current,
+          senderId: manager.myPeerId,
+        });
+      };
+
+      manager.onPeerLeave = (leftId) => {
+        setConnectedPeerCount(manager.getConnectedPeerCount());
+        setRemoteCursors((prev) => {
+          const next = { ...prev };
+          delete next[leftId];
+          return next;
+        });
+        showToast('A collaborator left the whiteboard.');
+      };
+
+      manager.onData = (data, senderId) => {
+        if (!data || typeof data !== 'object') return;
+
+        if (data.type === 'INIT_CANVAS' || data.type === 'CANVAS_UPDATE') {
+          if (Array.isArray(data.elements)) {
+            setElements(data.elements);
+            elementsRef.current = data.elements;
+            setHistory((prev) => [...prev.slice(0, 50), data.elements]);
+            setHistoryIndex((prev) => prev + 1);
+            if (data.type === 'INIT_CANVAS') {
+              showToast('Whiteboard synchronized with host!');
+            }
+          }
+        } else if (data.type === 'CURSOR_MOVE') {
+          setRemoteCursors((prev) => ({
+            ...prev,
+            [data.senderId || senderId]: {
+              x: data.x,
+              y: data.y,
+              name: data.name || 'Collaborator',
+              color: data.color || '#6965db',
+              lastSeen: Date.now(),
+            },
+          }));
+        }
+      };
+
+      manager.onError = (err) => {
+        console.error('[LiveCollab] Error:', err);
+        showToast('Collaboration error. Please check your network.');
+      };
+
+      const myId = await manager.initialize();
+      setMyPeerId(myId);
+
+      if (targetRoomId && targetRoomId !== myId) {
+        setIsHost(false);
+        showToast('Connecting to room...');
+        await manager.connect(targetRoomId, {
+          name: userProfileRef.current.name,
+        });
+        setIsCollabActive(true);
+        setShareUrl(window.location.href);
+        showToast('Connected to live whiteboard!');
+      } else {
+        setIsHost(true);
+        const generatedUrl = `${window.location.origin}${window.location.pathname}?room=${myId}`;
+        setShareUrl(generatedUrl);
+        window.history.replaceState({}, '', generatedUrl);
+        setIsCollabActive(true);
+        setIsCollabOpen(true);
+        showToast('Live room created! Share link or QR code.');
+      }
+    } catch (err) {
+      console.error('[LiveCollab] Failed to start:', err);
+      showToast(err.message || 'Failed to start live collaboration.');
+    }
+  }, [showToast]);
+
+  const stopCollaboration = useCallback(() => {
+    if (peerManagerRef.current) {
+      peerManagerRef.current.destroy();
+      peerManagerRef.current = null;
+    }
+    setIsCollabActive(false);
+    setConnectedPeerCount(0);
+    setRemoteCursors({});
+    setShareUrl('');
+    window.history.replaceState({}, '', window.location.pathname);
+    showToast('Left live collaboration session.');
+  }, [showToast]);
+
+  // Automatically join room if ?room=... parameter is present in URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const room = params.get('room');
+    if (room) {
+      startCollaboration(room);
+    }
+  }, [startCollaboration]);
+
+  // Periodic cleanup for stale remote cursors (> 8 seconds without update)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setRemoteCursors((prev) => {
+        let changed = false;
+        const next = { ...prev };
+        for (const [id, c] of Object.entries(next)) {
+          if (now - c.lastSeen > 8000) {
+            delete next[id];
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    }, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   // Insert image element onto canvas
@@ -1321,6 +1484,22 @@ export default function App() {
       eraserFxRef.current.clearCursor();
     }
 
+    // Broadcast live cursor to collaborators (throttled to ~25fps)
+    if (isCollabActiveRef.current && peerManagerRef.current) {
+      const now = Date.now();
+      if (now - lastCursorBroadcastRef.current > 40) {
+        lastCursorBroadcastRef.current = now;
+        peerManagerRef.current.broadcast({
+          type: 'CURSOR_MOVE',
+          x,
+          y,
+          senderId: myPeerIdRef.current,
+          name: userProfileRef.current.name,
+          color: userProfileRef.current.color,
+        });
+      }
+    }
+
     // Pan canvas
     if (currentAction === 'panning') {
       const dx = e.clientX - dragStartRef.current.x;
@@ -2081,6 +2260,15 @@ export default function App() {
         onToggleProperties={() => setIsPropertiesOpen((prev) => !prev)}
         isPropertiesOpen={isPropertiesOpen}
         onImageUpload={handleTriggerImageUpload}
+        onOpenCollab={() => {
+          if (!isCollabActive) {
+            startCollaboration();
+          } else {
+            setIsCollabOpen(true);
+          }
+        }}
+        connectedPeerCount={connectedPeerCount}
+        isCollabActive={isCollabActive}
       />
 
       {/* Top Left Menu Button & Dropdown */}
@@ -2176,6 +2364,44 @@ export default function App() {
         onDrop={handleDrop}
         className="block absolute inset-0 touch-none"
       />
+
+      {/* Remote Collaborators Live Cursors */}
+      {Object.entries(remoteCursors).map(([id, cursor]) => {
+        const screenPos = getScreenCoords(cursor.x, cursor.y);
+        return (
+          <div
+            key={id}
+            style={{
+              position: 'absolute',
+              left: `${screenPos.x}px`,
+              top: `${screenPos.y}px`,
+              pointerEvents: 'none',
+              zIndex: 35,
+              transform: 'translate(-2px, -2px)',
+              transition: 'left 0.06s linear, top 0.06s linear',
+            }}
+            className="flex items-start gap-1 select-none pointer-events-none"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill={cursor.color || '#6965db'}
+              stroke="#ffffff"
+              strokeWidth="1.5"
+              className="drop-shadow-md"
+            >
+              <path d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87a.5.5 0 0 0 .35-.85L6.35 2.85a.5.5 0 0 0-.85.36z" />
+            </svg>
+            <span
+              style={{ backgroundColor: cursor.color || '#6965db' }}
+              className="text-[10px] font-bold text-white px-1.5 py-0.5 rounded shadow-md whitespace-nowrap leading-none mt-2 select-none"
+            >
+              {cursor.name || 'Collaborator'}
+            </span>
+          </div>
+        );
+      })}
 
       {/* Inline Textarea Overlay when typing or editing text/sticky note */}
       {editingText && (
@@ -2515,6 +2741,18 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Live Collaboration Share Modal */}
+      <QrShareModal
+        isOpen={isCollabOpen}
+        onClose={() => setIsCollabOpen(false)}
+        shareUrl={shareUrl}
+        peerId={myPeerId}
+        connectedCount={connectedPeerCount}
+        isHost={isHost}
+        onDisconnect={stopCollaboration}
+        isDarkMode={isDarkMode}
+      />
 
       {/* Vercel Analytics */}
       <Analytics />
