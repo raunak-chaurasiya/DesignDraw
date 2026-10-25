@@ -53,14 +53,14 @@ export default function Toolbar({
   isCollabActive = false,
 }) {
   return (
-    <div className="fixed top-3 sm:top-4 left-1/2 -translate-x-1/2 z-40 select-none max-w-[calc(100vw-4.5rem)] sm:max-w-none">
+    <div className="fixed top-3 sm:top-4 left-[3.85rem] right-3 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-40 select-none max-w-full sm:max-w-none">
       <div
-        className={`flex items-center gap-0.5 sm:gap-1 p-1 sm:p-1.5 rounded-xl border shadow-xl backdrop-blur-md transition-colors overflow-x-auto ${
+        className={`flex items-center gap-0.5 sm:gap-1 p-1 sm:p-1.5 rounded-xl border shadow-xl backdrop-blur-md transition-colors overflow-x-auto touch-pan-x ${
           isDarkMode
             ? 'bg-[#232329]/95 border-[#34343e] text-neutral-300'
             : 'bg-white/95 border-neutral-200 text-neutral-700 shadow-neutral-300/40'
         }`}
-        style={{ scrollbarWidth: 'none' }}
+        style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
       >
         {/* Lock toggle button */}
         <button

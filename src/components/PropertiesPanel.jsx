@@ -68,11 +68,12 @@ export default function PropertiesPanel({
 
   return (
     <div
-      className={`fixed top-16 left-4 z-30 w-64 max-h-[calc(100vh-5rem)] overflow-y-auto rounded-2xl border p-4 shadow-2xl backdrop-blur-md transition-all ${
+      className={`fixed top-16 left-3 sm:left-4 z-30 w-[calc(100vw-1.5rem)] sm:w-64 max-w-xs sm:max-w-none max-h-[calc(100vh-5.5rem)] overflow-y-auto rounded-2xl border p-3.5 sm:p-4 shadow-2xl backdrop-blur-md transition-all ${
         isDarkMode
           ? 'bg-[#232329]/95 border-[#34343e] text-neutral-200'
           : 'bg-white/95 border-neutral-200 text-neutral-800 shadow-neutral-300/40'
       }`}
+      style={{ scrollbarWidth: 'thin' }}
     >
       <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
         <span className="text-xs font-semibold tracking-wider uppercase text-neutral-400 flex items-center gap-1.5 truncate pr-1">

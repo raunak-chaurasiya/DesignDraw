@@ -36,15 +36,15 @@ export default function HelpModal({ isOpen, onClose, isDarkMode = true }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
       <div
-        className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl transition-all ${
+        className={`w-full max-w-md max-h-[92vh] flex flex-col rounded-2xl border p-4 sm:p-6 shadow-2xl transition-all ${
           isDarkMode
             ? 'bg-[#1e1e24] border-[#34343e] text-neutral-100'
             : 'bg-white border-neutral-200 text-neutral-900 shadow-neutral-300/50'
         }`}
       >
-        <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-4">
+        <div className="flex items-center justify-between pb-3 sm:pb-4 border-b border-white/10 mb-3 sm:mb-4">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-xl bg-[#6965db]/20 text-[#827fe2]">
               <Keyboard size={20} />
@@ -62,7 +62,7 @@ export default function HelpModal({ isOpen, onClose, isDarkMode = true }) {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 text-xs max-h-[380px] overflow-y-auto pr-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs max-h-[58vh] sm:max-h-[380px] overflow-y-auto pr-1">
           {SHORTCUTS.map((sc, i) => (
             <div
               key={i}

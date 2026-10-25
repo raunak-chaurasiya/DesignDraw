@@ -75,13 +75,14 @@ export default function ExportModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
       <div
-        className={`w-full max-w-lg rounded-2xl border p-6 shadow-2xl transition-all ${
+        className={`w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-2xl border p-4 sm:p-6 shadow-2xl transition-all ${
           isDarkMode
             ? 'bg-[#1e1e24] border-[#34343e] text-neutral-100'
             : 'bg-white border-neutral-200 text-neutral-900 shadow-neutral-300/50'
         }`}
+        style={{ scrollbarWidth: 'thin' }}
       >
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-white/10">

@@ -9,6 +9,7 @@ import HelpModal from './components/HelpModal';
 import IntroCard from './components/IntroCard';
 import QrShareModal from './components/qr-share-modal';
 import { getPeerManager } from './utils/peer-connection';
+import { Download } from 'lucide-react';
 import { Analytics } from "@vercel/analytics/react";
 import { TOOLS, DEFAULT_STYLE } from './constants';
 import {
@@ -2318,8 +2319,8 @@ export default function App() {
         setIsOpen={setIsPropertiesOpen}
       />
 
-      {/* Center Top Hint Message (just like in Excalidraw) */}
-      <div className="fixed top-16 left-1/2 -translate-x-1/2 z-20 pointer-events-none opacity-60 text-center">
+      {/* Center Top Hint Message (Hidden on mobile) */}
+      <div className="hidden md:block fixed top-16 left-1/2 -translate-x-1/2 z-20 pointer-events-none opacity-60 text-center">
         <span
           className={`text-xs px-3 py-1 rounded-full backdrop-blur-sm ${isDarkMode ? 'bg-white/5 text-neutral-400' : 'bg-black/5 text-neutral-500'
             }`}
@@ -2341,14 +2342,15 @@ export default function App() {
         isDarkMode={isDarkMode}
       />
 
-      {/* Bottom Right Export Shortcut & Help Button */}
-      <div className="fixed bottom-4 right-4 z-30 flex items-center gap-2">
+      {/* Bottom Right Export Shortcut */}
+      <div className="fixed bottom-3 sm:bottom-4 right-3 sm:right-4 z-30 flex items-center gap-2">
         <button
           onClick={() => setIsExportOpen(true)}
-          className="py-2 px-3.5 rounded-xl bg-[#6965db] hover:bg-[#5b57d1] text-white text-xs font-semibold shadow-lg shadow-[#6965db]/25 transition-all flex items-center gap-1.5"
+          className="p-2 sm:py-2 sm:px-3.5 rounded-xl bg-[#6965db] hover:bg-[#5b57d1] text-white text-xs font-semibold shadow-lg shadow-[#6965db]/25 transition-all flex items-center gap-1.5 active:scale-95"
           title="Export as JPG or PNG"
         >
-          <span>Export JPG</span>
+          <Download size={15} />
+          <span className="hidden sm:inline">Export JPG</span>
         </button>
       </div>
 
