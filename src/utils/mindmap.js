@@ -1,6 +1,13 @@
 import { getElementBounds } from './math';
 import { getAnchorPosition } from './binding';
 
+function generateUniqueId(prefix) {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return `${prefix}-${crypto.randomUUID()}`;
+  }
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+}
+
 /**
  * Find the parent element connected to this node via an incoming arrow
  */
@@ -9,12 +16,12 @@ export function findParentNode(nodeId, elements) {
 
   // Look for an arrow whose endBinding points to this node
   const incomingArrow = elements.find(
-    (el) => el.type === 'arrow' && el.endBinding && el.endBinding.elementId === nodeId
+    (el) => el && el.type === 'arrow' && el.endBinding && el.endBinding.elementId === nodeId
   );
 
   if (!incomingArrow || !incomingArrow.startBinding) return null;
 
-  const parent = elements.find((el) => el.id === incomingArrow.startBinding.elementId);
+  const parent = elements.find((el) => el && el.id === incomingArrow.startBinding.elementId);
   return parent ? { parent, arrow: incomingArrow } : null;
 }
 
@@ -25,13 +32,13 @@ export function findChildNodes(nodeId, elements) {
   if (!nodeId || !elements) return [];
 
   const outgoingArrows = elements.filter(
-    (el) => el.type === 'arrow' && el.startBinding && el.startBinding.elementId === nodeId
+    (el) => el && el.type === 'arrow' && el.startBinding && el.startBinding.elementId === nodeId
   );
 
   const children = [];
   for (const arrow of outgoingArrows) {
     if (arrow.endBinding) {
-      const child = elements.find((el) => el.id === arrow.endBinding.elementId);
+      const child = elements.find((el) => el && el.id === arrow.endBinding.elementId);
       if (child) {
         children.push({ child, arrow });
       }
@@ -42,6 +49,7 @@ export function findChildNodes(nodeId, elements) {
 
 /**
  * Calculate a smart non-overlapping position for a new branch node
+ * with absolute collision avoidance guarantee.
  */
 export function calculateSmartBranchPosition(
   sourceNode,
@@ -60,7 +68,6 @@ export function calculateSmartBranchPosition(
   const vGap = 28; // vertical gap between sibling nodes
 
   if (isSibling) {
-    // Position below the sourceNode
     targetX = sourceBounds.minX;
     targetY = sourceBounds.maxY + vGap;
   } else {
@@ -68,12 +75,10 @@ export function calculateSmartBranchPosition(
     if (direction === 'right') {
       targetX = sourceBounds.maxX + hGap;
 
-      // Check existing children of sourceNode to stack them vertically
       const existingChildren = findChildNodes(sourceNode.id, elements);
       if (existingChildren.length === 0) {
         targetY = sourceBounds.minY + (sourceBounds.height - nodeHeight) / 2;
       } else {
-        // Find bottommost child
         let maxY = -Infinity;
         for (const { child } of existingChildren) {
           const cb = getElementBounds(child);
@@ -93,11 +98,11 @@ export function calculateSmartBranchPosition(
     }
   }
 
-  // Smart collision resolution: ensure target box doesn't overlap existing shapes
+  // Smart collision resolution with guaranteed non-overlapping bounds check
   let safetyCounter = 0;
   while (safetyCounter < 25) {
-    const collides = elements.some((el) => {
-      if (['arrow', 'line', 'pencil'].includes(el.type)) return false;
+    const collidingElement = elements.find((el) => {
+      if (!el || ['arrow', 'line', 'pencil'].includes(el.type)) return false;
       if (el.id === sourceNode.id) return false;
       const b = getElementBounds(el);
       return !(
@@ -108,11 +113,28 @@ export function calculateSmartBranchPosition(
       );
     });
 
-    if (!collides) break;
+    if (!collidingElement) break;
 
-    // Shift downwards to find open canvas space
-    targetY += nodeHeight + vGap;
+    // Shift downwards past the colliding element
+    const collB = getElementBounds(collidingElement);
+    targetY = Math.max(targetY + nodeHeight + vGap, collB.maxY + vGap);
     safetyCounter++;
+  }
+
+  // If safetyCounter reached 25, find global bottom bound in that column to guarantee non-overlap
+  if (safetyCounter >= 25) {
+    let columnMaxY = targetY;
+    for (const el of elements) {
+      if (!el || ['arrow', 'line', 'pencil'].includes(el.type)) continue;
+      const b = getElementBounds(el);
+      if (
+        !(targetX + nodeWidth < b.minX - 10 || targetX > b.maxX + 10) &&
+        b.maxY > columnMaxY
+      ) {
+        columnMaxY = b.maxY;
+      }
+    }
+    targetY = columnMaxY + vGap;
   }
 
   return { x: targetX, y: targetY, width: nodeWidth, height: nodeHeight };
@@ -137,7 +159,6 @@ export const MINDMAP_PALETTES = [
 export function createBranchNode(sourceNode, direction = 'right', elements = [], isSibling = false) {
   if (!sourceNode) return null;
 
-  // If creating sibling and this node has a parent, connect new sibling to the same parent!
   let effectiveParent = sourceNode;
   let effectiveDirection = direction;
 
@@ -151,15 +172,13 @@ export function createBranchNode(sourceNode, direction = 'right', elements = [],
 
   const pos = calculateSmartBranchPosition(sourceNode, effectiveDirection, elements, isSibling);
 
-  // Pick branch color based on number of siblings or parent color
   const existingSiblings = findChildNodes(effectiveParent.id, elements);
   const colorIndex = existingSiblings.length % MINDMAP_PALETTES.length;
   const palette = MINDMAP_PALETTES[colorIndex];
 
-  const newNodeId = 'el-node-' + Date.now();
-  const arrowId = 'el-arrow-' + Date.now();
+  const newNodeId = generateUniqueId('node');
+  const arrowId = generateUniqueId('arrow');
 
-  // Child node type: sticky, rectangle, ellipse, or text
   const nodeType = sourceNode.type === 'sticky' ? 'sticky' : 'rectangle';
 
   const newNode = {
@@ -182,7 +201,6 @@ export function createBranchNode(sourceNode, direction = 'right', elements = [],
     opacity: 100,
   };
 
-  // Determine magnetic anchor points
   let parentAnchor = effectiveDirection;
   let childAnchor = 'left';
 

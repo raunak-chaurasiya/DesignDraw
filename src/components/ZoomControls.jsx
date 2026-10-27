@@ -1,4 +1,3 @@
-import React from 'react';
 import { Minus, Plus, Undo2, Redo2 } from 'lucide-react';
 
 export default function ZoomControls({

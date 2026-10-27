@@ -1,5 +1,8 @@
+import { measureTextBounds } from './textMeasurement';
+
 // Point distance
 export function distance(p1, p2) {
+  if (!p1 || !p2) return 0;
   return Math.hypot(p1.x - p2.x, p1.y - p2.y);
 }
 
@@ -22,17 +25,23 @@ export function getElementBounds(element) {
 
   if (type === 'pencil') {
     if (!element.points || element.points.length === 0) {
-      return { minX: element.x || 0, minY: element.y || 0, maxX: element.x || 0, maxY: element.y || 0, width: 0, height: 0 };
+      const px = element.x || 0;
+      const py = element.y || 0;
+      return { minX: px, minY: py, maxX: px, maxY: py, width: 0, height: 0 };
     }
     let minX = Infinity;
     let minY = Infinity;
     let maxX = -Infinity;
     let maxY = -Infinity;
     for (const p of element.points) {
+      if (!p || typeof p.x !== 'number' || typeof p.y !== 'number') continue;
       if (p.x < minX) minX = p.x;
       if (p.y < minY) minY = p.y;
       if (p.x > maxX) maxX = p.x;
       if (p.y > maxY) maxY = p.y;
+    }
+    if (!Number.isFinite(minX)) {
+      return { minX: 0, minY: 0, maxX: 0, maxY: 0, width: 0, height: 0 };
     }
     const pad = (element.strokeWidth || 2) * 2;
     return {
@@ -46,10 +55,10 @@ export function getElementBounds(element) {
   }
 
   if (type === 'line' || type === 'arrow') {
-    const minX = Math.min(element.x1, element.x2);
-    const maxX = Math.max(element.x1, element.x2);
-    const minY = Math.min(element.y1, element.y2);
-    const maxY = Math.max(element.y1, element.y2);
+    const minX = Math.min(element.x1 || 0, element.x2 || 0);
+    const maxX = Math.max(element.x1 || 0, element.x2 || 0);
+    const minY = Math.min(element.y1 || 0, element.y2 || 0);
+    const maxY = Math.max(element.y1 || 0, element.y2 || 0);
     const pad = Math.max(10, (element.strokeWidth || 2) * 2);
     return {
       minX: minX - pad,
@@ -61,24 +70,24 @@ export function getElementBounds(element) {
     };
   }
 
-  // Text element bounds calculation based on text content & font size
+  // Text element bounds calculation based on actual canvas text metrics
   if (type === 'text') {
     const fontSize = element.fontSize || 24;
-    const lines = (element.text || '').split('\n');
-    const maxLen = lines.reduce((max, l) => Math.max(max, l.length), 0);
-    const w = element.width || Math.max(30, maxLen * (fontSize * 0.58) + 8);
-    const h = element.height || Math.max(fontSize * 1.3, lines.length * (fontSize * 1.35));
+    const fontFamily = element.fontFamily || "'Patrick Hand', cursive";
+    const measured = measureTextBounds(element.text || '', fontSize, fontFamily);
+    const w = element.width || measured.width;
+    const h = element.height || measured.height;
     return {
-      minX: element.x,
-      minY: element.y,
-      maxX: element.x + w,
-      maxY: element.y + h,
+      minX: element.x || 0,
+      minY: element.y || 0,
+      maxX: (element.x || 0) + w,
+      maxY: (element.y || 0) + h,
       width: w,
       height: h,
     };
   }
 
-  // Shapes, sticky & table
+  // Shapes, sticky, table & image
   const x = element.x || 0;
   const y = element.y || 0;
   const w = element.width || 0;
@@ -147,11 +156,16 @@ export function getElementsBounds(elements, padding = 40) {
   let maxY = -Infinity;
 
   for (const el of elements) {
+    if (!el) continue;
     const b = getElementBounds(el);
     if (b.minX < minX) minX = b.minX;
     if (b.minY < minY) minY = b.minY;
     if (b.maxX > maxX) maxX = b.maxX;
     if (b.maxY > maxY) maxY = b.maxY;
+  }
+
+  if (!Number.isFinite(minX)) {
+    return { minX: 0, minY: 0, maxX: 400, maxY: 300, width: 400, height: 300 };
   }
 
   return {
@@ -176,11 +190,16 @@ export function getElementsExactBounds(elements, padding = 0) {
   let maxY = -Infinity;
 
   for (const el of elements) {
+    if (!el) continue;
     const b = getElementBounds(el);
     if (b.minX < minX) minX = b.minX;
     if (b.minY < minY) minY = b.minY;
     if (b.maxX > maxX) maxX = b.maxX;
     if (b.maxY > maxY) maxY = b.maxY;
+  }
+
+  if (!Number.isFinite(minX)) {
+    return { minX: 0, minY: 0, maxX: 0, maxY: 0, width: 0, height: 0 };
   }
 
   return {
@@ -211,14 +230,19 @@ export function isPointInElement(px, py, element, threshold = 8) {
   const { type } = element;
 
   if (type === 'pencil') {
-    if (!element.points || element.points.length < 2) {
-      return distance({ x: px, y: py }, element.points[0] || { x: px, y: py }) <= threshold;
+    if (!element.points || element.points.length === 0) {
+      return false;
+    }
+    if (element.points.length === 1) {
+      return distance({ x: px, y: py }, element.points[0]) <= threshold + (element.strokeWidth || 2);
     }
     for (let i = 0; i < element.points.length - 1; i++) {
       const p1 = element.points[i];
       const p2 = element.points[i + 1];
-      if (distToSegment(px, py, p1.x, p1.y, p2.x, p2.y) <= threshold + (element.strokeWidth || 2)) {
-        return true;
+      if (p1 && p2) {
+        if (distToSegment(px, py, p1.x, p1.y, p2.x, p2.y) <= threshold + (element.strokeWidth || 2)) {
+          return true;
+        }
       }
     }
     return false;
@@ -244,12 +268,10 @@ export function isPointInElement(px, py, element, threshold = 8) {
     const cy = bounds.minY + ry;
     if (rx === 0 || ry === 0) return false;
     const normalized = ((px - cx) ** 2) / (rx ** 2) + ((py - cy) ** 2) / (ry ** 2);
-    // inside or near edge
     return normalized <= 1.25;
   }
 
   if (type === 'diamond') {
-    // Check if inside 4-pointed polygon
     const cx = (bounds.minX + bounds.maxX) / 2;
     const cy = (bounds.minY + bounds.maxY) / 2;
     const dx = Math.abs(px - cx) / (bounds.width / 2 || 1);
@@ -262,6 +284,7 @@ export function isPointInElement(px, py, element, threshold = 8) {
 
 // Check if element is inside or intersects marquee selection box
 export function isElementInBox(element, box) {
+  if (!element || !box) return false;
   const eb = getElementBounds(element);
   const minX = Math.min(box.x1, box.x2);
   const maxX = Math.max(box.x1, box.x2);
@@ -278,6 +301,8 @@ export function isElementInBox(element, box) {
 
 // 8 Resize handles for selected element
 export function getResizeHandles(element) {
+  if (!element) return [];
+
   if (element.type === 'line' || element.type === 'arrow') {
     return [
       { type: 'start', x: element.x1, y: element.y1, cursor: 'crosshair' },
@@ -312,4 +337,18 @@ export function getHitResizeHandle(px, py, element, zoom = 1) {
     }
   }
   return null;
+}
+
+// Proportionally scale pencil points during resize
+export function scalePencilPoints(points, oldBounds, newBounds) {
+  if (!points || points.length === 0) return points;
+  const oldW = Math.max(1, oldBounds.maxX - oldBounds.minX);
+  const oldH = Math.max(1, oldBounds.maxY - oldBounds.minY);
+  const newW = Math.max(1, newBounds.maxX - newBounds.minX);
+  const newH = Math.max(1, newBounds.maxY - newBounds.minY);
+
+  return points.map((p) => ({
+    x: newBounds.minX + ((p.x - oldBounds.minX) / oldW) * newW,
+    y: newBounds.minY + ((p.y - oldBounds.minY) / oldH) * newH,
+  }));
 }

@@ -1,4 +1,3 @@
-import rough from 'roughjs';
 import { getElementBounds, getResizeHandles } from './math';
 
 // Image cache to avoid re-decoding image data on every 60fps frame
@@ -9,21 +8,79 @@ export function getCachedImage(dataUrl, onLoaded) {
   let entry = imageCache.get(dataUrl);
   if (!entry) {
     const img = new Image();
-    entry = { img, loaded: false };
+    entry = { img, loaded: false, error: false };
     img.onload = () => {
       entry.loaded = true;
       if (onLoaded) onLoaded(img);
     };
     img.onerror = () => {
       entry.error = true;
+      if (onLoaded) onLoaded(null);
     };
     img.src = dataUrl;
     imageCache.set(dataUrl, entry);
+  } else if (!entry.loaded && onLoaded) {
+    // If already in flight, register callback
+    const prevOnload = entry.img.onload;
+    entry.img.onload = () => {
+      if (prevOnload) prevOnload();
+      onLoaded(entry.img);
+    };
   }
   return entry.loaded ? entry.img : null;
 }
 
-export function renderElement(ctx, rc, element, isSelected = false) {
+// Wrap text to fit inside maximum width while strictly preserving manual line breaks (\n)
+export function wrapText(ctx, text, maxWidth) {
+  if (!text) return [''];
+  const paragraphs = String(text).split('\n');
+  const allLines = [];
+
+  for (const para of paragraphs) {
+    if (para === '') {
+      allLines.push('');
+      continue;
+    }
+
+    const words = para.split(' ');
+    let currentLine = '';
+
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      const metrics = ctx.measureText(testLine);
+
+      if (metrics.width > maxWidth && currentLine) {
+        allLines.push(currentLine);
+        // If the word itself is wider than maxWidth, break the word into character chunks
+        if (ctx.measureText(word).width > maxWidth) {
+          let broken = '';
+          for (const char of word) {
+            if (ctx.measureText(broken + char).width > maxWidth) {
+              if (broken) allLines.push(broken);
+              broken = char;
+            } else {
+              broken += char;
+            }
+          }
+          currentLine = broken;
+        } else {
+          currentLine = word;
+        }
+      } else {
+        currentLine = testLine;
+      }
+    }
+
+    if (currentLine) {
+      allLines.push(currentLine);
+    }
+  }
+
+  return allLines.length > 0 ? allLines : [''];
+}
+
+export function renderElement(ctx, rc, element, isSelected = false, onImageLoaded = null) {
   if (!element) return;
 
   ctx.save();
@@ -38,13 +95,16 @@ export function renderElement(ctx, rc, element, isSelected = false) {
       ? [3, 6]
       : undefined;
 
+  const isNoneFill = element.fillStyle === 'none';
+  const hasBg = element.backgroundColor && element.backgroundColor !== 'transparent';
+
   const roughOptions = {
     seed: element.seed || 1,
     roughness: element.roughness !== undefined ? element.roughness : 1.2,
     stroke: element.strokeColor || '#ffffff',
     strokeWidth: element.strokeWidth || 2,
-    fill: element.backgroundColor && element.backgroundColor !== 'transparent' ? element.backgroundColor : undefined,
-    fillStyle: element.fillStyle || 'hachure',
+    fill: !isNoneFill && hasBg ? element.backgroundColor : undefined,
+    fillStyle: !isNoneFill ? (element.fillStyle || 'hachure') : undefined,
     strokeLineDash: strokeDash,
     fillWeight: Math.max(1, (element.strokeWidth || 2) / 2),
     hachureGap: Math.max(4, (element.strokeWidth || 2) * 2.5),
@@ -107,13 +167,11 @@ export function renderElement(ctx, rc, element, isSelected = false) {
     }
 
     case 'arrow': {
-      // Draw main line
       rc.line(element.x1, element.y1, element.x2, element.y2, roughOptions);
 
-      // Draw arrowhead
       const angle = Math.atan2(element.y2 - element.y1, element.x2 - element.x1);
       const arrowLength = Math.max(14, (element.strokeWidth || 2) * 5);
-      const arrowAngle = Math.PI / 6; // 30 degrees
+      const arrowAngle = Math.PI / 6;
 
       const x2 = element.x2;
       const y2 = element.y2;
@@ -137,7 +195,6 @@ export function renderElement(ctx, rc, element, isSelected = false) {
           ctx.fillStyle = element.strokeColor || '#ffffff';
           ctx.fill();
         } else {
-          // Smooth curve
           const pts = element.points.map((p) => [p.x, p.y]);
           rc.curve(pts, roughOptions);
         }
@@ -152,11 +209,9 @@ export function renderElement(ctx, rc, element, isSelected = false) {
       const h = Math.abs(element.height);
 
       if (w > 0 && h > 0) {
-        // Subtle drop shadow
         ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
         ctx.fillRect(x + 4, y + 4, w, h);
 
-        // Sticky body
         const stickyFill = element.backgroundColor && element.backgroundColor !== 'transparent'
           ? element.backgroundColor
           : '#fff3bf';
@@ -170,7 +225,6 @@ export function renderElement(ctx, rc, element, isSelected = false) {
           roughness: 0.8,
         });
 
-        // Text inside sticky note
         if (element.text) {
           ctx.fillStyle = element.textColor || '#212529';
           const fontSize = element.fontSize || 20;
@@ -200,8 +254,8 @@ export function renderElement(ctx, rc, element, isSelected = false) {
       ctx.fillStyle = element.strokeColor || '#ffffff';
       ctx.textBaseline = 'top';
 
-      const lines = (element.text || '').split('\n');
-      const lineHeight = fontSize * 1.3;
+      const lines = String(element.text || '').split('\n');
+      const lineHeight = fontSize * 1.35;
       let curY = element.y;
 
       for (const line of lines) {
@@ -218,11 +272,10 @@ export function renderElement(ctx, rc, element, isSelected = false) {
       const h = Math.abs(element.height);
 
       if (w > 0 && h > 0) {
-        const cachedImg = getCachedImage(element.dataUrl);
+        const cachedImg = getCachedImage(element.dataUrl, onImageLoaded);
 
         if (cachedImg) {
           ctx.save();
-          // Clip with subtle rounded corners
           ctx.beginPath();
           const r = Math.min(8, Math.min(w, h) / 6);
           if (typeof ctx.roundRect === 'function') {
@@ -234,7 +287,6 @@ export function renderElement(ctx, rc, element, isSelected = false) {
           ctx.drawImage(cachedImg, x, y, w, h);
           ctx.restore();
 
-          // If border is set, draw border
           if (element.strokeWidth && element.strokeWidth > 0 && element.strokeColor && element.strokeColor !== 'transparent') {
             rc.rectangle(x, y, w, h, {
               ...roughOptions,
@@ -274,13 +326,10 @@ export function renderElement(ctx, rc, element, isSelected = false) {
       const data = element.data || [];
 
       if (w > 0 && h > 0) {
-        // 1. Draw outer table container box
         rc.rectangle(x, y, w, h, roughOptions);
 
-        // 2. Draw header tint if hasHeader is enabled
         if (element.hasHeader && rows > 0) {
           ctx.save();
-          // Header subtle accent background tint
           const headerFill = element.backgroundColor && element.backgroundColor !== 'transparent'
             ? element.backgroundColor
             : 'rgba(105, 101, 219, 0.16)';
@@ -288,27 +337,23 @@ export function renderElement(ctx, rc, element, isSelected = false) {
           ctx.fillRect(x + 1, y + 1, w - 2, rowH - 1);
           ctx.restore();
 
-          // Header row bottom border
           rc.line(x, y + rowH, x + w, y + rowH, {
             ...roughOptions,
             strokeWidth: Math.max(2.5, (element.strokeWidth || 2) * 1.25),
           });
         }
 
-        // 3. Draw horizontal row dividers
         for (let r = 1; r < rows; r++) {
-          if (r === 1 && element.hasHeader) continue; // already drawn above
+          if (r === 1 && element.hasHeader) continue;
           const lineY = y + r * rowH;
           rc.line(x, lineY, x + w, lineY, roughOptions);
         }
 
-        // 4. Draw vertical column dividers
         for (let c = 1; c < cols; c++) {
           const lineX = x + c * colW;
           rc.line(lineX, y, lineX, y + h, roughOptions);
         }
 
-        // 5. Draw cell text
         const fontSize = element.fontSize || 18;
         const fontFamily = element.fontFamily || "'Patrick Hand', cursive";
         ctx.textBaseline = 'top';
@@ -326,6 +371,12 @@ export function renderElement(ctx, rc, element, isSelected = false) {
             const cellX = x + c * colW;
             const cellY = y + r * rowH;
 
+            // Clip text to cell boundary so it never spills into neighboring cells
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(cellX + 1, cellY + 1, colW - 2, rowH - 2);
+            ctx.clip();
+
             ctx.fillStyle = element.strokeColor || '#ffffff';
             ctx.font = isHeaderRow
               ? `bold ${fontSize}px ${fontFamily}`
@@ -336,10 +387,11 @@ export function renderElement(ctx, rc, element, isSelected = false) {
 
             let curTextY = cellY + padY;
             for (const line of lines) {
-              if (curTextY + lineHeight > cellY + rowH) break; // clip if exceeding cell height
+              if (curTextY + lineHeight > cellY + rowH) break;
               ctx.fillText(line, cellX + padX, curTextY);
               curTextY += lineHeight;
             }
+            ctx.restore();
           }
         }
       }
@@ -352,35 +404,12 @@ export function renderElement(ctx, rc, element, isSelected = false) {
 
   ctx.restore();
 
-  // Draw selection highlight if selected
   if (isSelected) {
     drawSelectionBox(ctx, element);
   }
 }
 
-// Wrap text to fit inside maximum width
-function wrapText(ctx, text, maxWidth) {
-  const words = text.split(/\s+/);
-  const lines = [];
-  let currentLine = '';
-
-  for (let i = 0; i < words.length; i++) {
-    const testLine = currentLine ? currentLine + ' ' + words[i] : words[i];
-    const metrics = ctx.measureText(testLine);
-    if (metrics.width > maxWidth && currentLine) {
-      lines.push(currentLine);
-      currentLine = words[i];
-    } else {
-      currentLine = testLine;
-    }
-  }
-  if (currentLine) {
-    lines.push(currentLine);
-  }
-  return lines.length > 0 ? lines : [''];
-}
-
-// Draw centered text inside shapes (rectangle, ellipse, diamond, etc.)
+// Draw centered text inside shapes
 function drawCenteredTextInShape(ctx, element, x, y, w, h) {
   if (!element.text) return;
   const fontSize = element.fontSize || 20;
@@ -394,7 +423,7 @@ function drawCenteredTextInShape(ctx, element, x, y, w, h) {
   const pad = 10;
   const maxWidth = Math.max(20, w - pad * 2);
   const lines = wrapText(ctx, element.text, maxWidth);
-  const lineHeight = fontSize * 1.3;
+  const lineHeight = fontSize * 1.35;
   const totalHeight = lines.length * lineHeight;
 
   let startY = y + (h - totalHeight) / 2 + lineHeight / 2;
@@ -417,7 +446,6 @@ function drawSelectionBox(ctx, element) {
   ctx.strokeStyle = '#6965db';
 
   if (element.type === 'line' || element.type === 'arrow') {
-    // For lines and arrows, draw endpoint handles as circular rings
     ctx.lineWidth = 1.5;
     for (const h of handles) {
       ctx.beginPath();
@@ -439,7 +467,6 @@ function drawSelectionBox(ctx, element) {
     ctx.setLineDash([6, 4]);
     ctx.strokeRect(minX, minY, width, height);
 
-    // Resize handles
     ctx.setLineDash([]);
     ctx.fillStyle = '#ffffff';
     ctx.strokeStyle = '#6965db';
@@ -469,13 +496,11 @@ export function drawShapeAnchors(ctx, element, activeAnchorType = null) {
   ];
 
   ctx.save();
-  // Shape highlight dashed border
   ctx.strokeStyle = 'rgba(105, 101, 219, 0.7)';
   ctx.lineWidth = 1.5;
   ctx.setLineDash([4, 4]);
   ctx.strokeRect(bounds.minX - 4, bounds.minY - 4, bounds.width + 8, bounds.height + 8);
 
-  // Draw anchor dots
   for (const a of anchors) {
     const isActive = activeAnchorType === a.type;
     ctx.setLineDash([]);
@@ -501,7 +526,7 @@ export function drawShapeAnchors(ctx, element, activeAnchorType = null) {
 // Draw dot grid for infinite canvas
 export function drawGrid(ctx, width, height, pan, zoom, isDarkMode = true) {
   const gridSize = 24 * zoom;
-  if (gridSize < 8) return; // Don't draw if too small
+  if (gridSize < 8) return;
 
   const dotColor = isDarkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)';
   const dotRadius = Math.max(1, 1.2 * zoom);

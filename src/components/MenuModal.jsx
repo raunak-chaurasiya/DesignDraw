@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 import {
   Menu,
   Download,
@@ -10,7 +10,6 @@ import {
   Grid,
   HelpCircle,
   X,
-  FileCode,
   ExternalLink,
 } from 'lucide-react';
 import { importFromJson } from '../utils/export';
@@ -54,7 +53,7 @@ export default function MenuModal({
 
     try {
       const data = await importFromJson(file);
-      onLoadElements(data.elements || []);
+      onLoadElements(data.elements || [], data.appState);
       setIsOpen(false);
     } catch (err) {
       alert('Error loading file: ' + err.message);

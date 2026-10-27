@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   Square,
   Diamond,
@@ -6,7 +5,6 @@ import {
   MoveRight,
   Pencil,
   Type,
-  StickyNote,
   Sparkles,
 } from 'lucide-react';
 import { TOOLS } from '../constants';
@@ -21,7 +19,7 @@ const QUICK_SHAPES = [
 ];
 
 export default function IntroCard({
-  visible,
+  visible = true,
   onSelectTool,
   onDismiss,
   isDarkMode = true,

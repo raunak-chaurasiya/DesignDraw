@@ -1,18 +1,62 @@
 import rough from 'roughjs';
 import { getElementsBounds } from './math';
-import { renderElement } from './roughRenderer';
+import { renderElement, imageCache } from './roughRenderer';
+import { validateScene } from './validation';
 
 /**
- * Render elements to an offscreen canvas at high resolution
+ * Preload and decode all images in the scene, and await fonts readiness
+ */
+export async function prepareElementsForExport(elements) {
+  if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
+    try {
+      await document.fonts.ready;
+    } catch {
+      // ignore
+    }
+  }
+
+  const imagePromises = [];
+
+  for (const el of elements) {
+    if (el && el.type === 'image' && el.dataUrl) {
+      const existing = imageCache.get(el.dataUrl);
+      if (existing && existing.loaded) continue;
+
+      const p = new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          imageCache.set(el.dataUrl, { img, loaded: true, error: false });
+          resolve();
+        };
+        img.onerror = () => {
+          imageCache.set(el.dataUrl, { img, loaded: false, error: true });
+          resolve();
+        };
+        img.src = el.dataUrl;
+      });
+      imagePromises.push(p);
+    }
+  }
+
+  if (imagePromises.length > 0) {
+    await Promise.all(imagePromises);
+  }
+}
+
+/**
+ * Render elements to an offscreen canvas at high resolution with safe bounds
  */
 export function generateExportCanvas(elements, options = {}) {
   const {
     padding = 40,
     backgroundColor = '#121212',
-    scale = 2, // 2x for sharp retina rendering
+    scale = 2,
+    maxDimension = 4096,
   } = options;
 
-  if (!elements || elements.length === 0) {
+  const validElements = Array.isArray(elements) ? elements.filter(Boolean) : [];
+
+  if (validElements.length === 0) {
     const emptyCanvas = document.createElement('canvas');
     emptyCanvas.width = 400 * scale;
     emptyCanvas.height = 300 * scale;
@@ -27,16 +71,26 @@ export function generateExportCanvas(elements, options = {}) {
     return emptyCanvas;
   }
 
-  const bounds = getElementsBounds(elements, padding);
-  const width = Math.max(100, bounds.width);
-  const height = Math.max(100, bounds.height);
+  const bounds = getElementsBounds(validElements, padding);
+  let width = Math.max(100, bounds.width);
+  let height = Math.max(100, bounds.height);
+
+  // Bound allocation size to prevent canvas memory crash or GPU overflow
+  let effectiveScale = scale;
+  if (width * effectiveScale > maxDimension || height * effectiveScale > maxDimension) {
+    const maxSide = Math.max(width, height);
+    effectiveScale = Math.max(0.5, maxDimension / maxSide);
+  }
+
+  const canvasWidth = Math.min(maxDimension, Math.floor(width * effectiveScale));
+  const canvasHeight = Math.min(maxDimension, Math.floor(height * effectiveScale));
 
   const canvas = document.createElement('canvas');
-  canvas.width = Math.floor(width * scale);
-  canvas.height = Math.floor(height * scale);
+  canvas.width = canvasWidth;
+  canvas.height = canvasHeight;
 
   const ctx = canvas.getContext('2d');
-  ctx.scale(scale, scale);
+  ctx.scale(effectiveScale, effectiveScale);
 
   // Fill background
   if (backgroundColor && backgroundColor !== 'transparent') {
@@ -50,7 +104,7 @@ export function generateExportCanvas(elements, options = {}) {
   const rc = rough.canvas(canvas);
 
   // Render each element without selection borders
-  for (const element of elements) {
+  for (const element of validElements) {
     renderElement(ctx, rc, element, false);
   }
 
@@ -60,16 +114,17 @@ export function generateExportCanvas(elements, options = {}) {
 /**
  * Export canvas elements as a high-quality JPG image and trigger browser download
  */
-export function exportToJpg(elements, options = {}) {
+export async function exportToJpg(elements, options = {}) {
   const {
     filename = 'whiteboard-drawing.jpg',
-    backgroundColor = '#121212', // default canvas theme
+    backgroundColor = '#121212',
     quality = 0.95,
     padding = 40,
     scale = 2,
   } = options;
 
-  // Background must be solid color for JPG (no transparency)
+  await prepareElementsForExport(elements);
+
   const solidBg = !backgroundColor || backgroundColor === 'transparent' ? '#ffffff' : backgroundColor;
 
   const canvas = generateExportCanvas(elements, {
@@ -80,7 +135,6 @@ export function exportToJpg(elements, options = {}) {
 
   const dataUrl = canvas.toDataURL('image/jpeg', quality);
 
-  // Trigger download
   const link = document.createElement('a');
   link.download = filename.endsWith('.jpg') || filename.endsWith('.jpeg') ? filename : `${filename}.jpg`;
   link.href = dataUrl;
@@ -92,13 +146,15 @@ export function exportToJpg(elements, options = {}) {
 /**
  * Export canvas elements as PNG image
  */
-export function exportToPng(elements, options = {}) {
+export async function exportToPng(elements, options = {}) {
   const {
     filename = 'whiteboard-drawing.png',
     backgroundColor = 'transparent',
     padding = 40,
     scale = 2,
   } = options;
+
+  await prepareElementsForExport(elements);
 
   const canvas = generateExportCanvas(elements, {
     backgroundColor,
@@ -117,14 +173,16 @@ export function exportToPng(elements, options = {}) {
 }
 
 /**
- * Export drawing project as JSON
+ * Export drawing project as JSON with validated elements and appState
  */
 export function exportToJson(elements, appState = {}) {
+  const sanitizedElements = validateScene(elements || []);
+
   const projectData = {
     version: 1,
-    source: 'excalidraw-clone',
+    source: 'design-draw',
     createdAt: new Date().toISOString(),
-    elements,
+    elements: sanitizedElements,
     appState: {
       theme: appState.theme || 'dark',
       viewBackgroundColor: appState.viewBackgroundColor || '#121212',
@@ -145,23 +203,33 @@ export function exportToJson(elements, appState = {}) {
 }
 
 /**
- * Import drawing project from JSON file
+ * Import drawing project from JSON file with strict validation
  */
 export function importFromJson(file) {
   return new Promise((resolve, reject) => {
+    if (!file) {
+      reject(new Error('No file provided'));
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const data = JSON.parse(e.target.result);
-        if (Array.isArray(data.elements)) {
-          resolve(data);
-        } else if (Array.isArray(data)) {
-          resolve({ elements: data });
-        } else {
-          reject(new Error('Invalid whiteboard project format'));
+        const rawElements = Array.isArray(data.elements) ? data.elements : (Array.isArray(data) ? data : null);
+
+        if (!rawElements) {
+          reject(new Error('Invalid whiteboard project format: missing elements array'));
+          return;
         }
+
+        const validated = validateScene(rawElements);
+        resolve({
+          elements: validated,
+          appState: data.appState || {},
+        });
       } catch (err) {
-        reject(err);
+        reject(new Error('Failed to parse JSON file: ' + err.message));
       }
     };
     reader.onerror = (err) => reject(err);

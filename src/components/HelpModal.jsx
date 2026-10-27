@@ -1,4 +1,3 @@
-import React from 'react';
 import { X, Keyboard } from 'lucide-react';
 
 const SHORTCUTS = [
@@ -18,9 +17,11 @@ const SHORTCUTS = [
   { key: 'Enter', desc: 'Auto-branch sibling node' },
   { key: 'I', desc: 'Insert Image tool' },
   { key: 'Ctrl + V', desc: 'Paste image from clipboard' },
-  { key: 'E / 0', desc: 'Eraser tool' },
-  { key: 'Space + Drag', desc: 'Pan canvas' },
-  { key: 'Mouse Wheel', desc: 'Zoom in / Zoom out' },
+  { key: 'E', desc: 'Eraser tool' },
+  { key: 'Space + Drag / Wheel', desc: 'Pan canvas' },
+  { key: 'Ctrl + Wheel', desc: 'Zoom at cursor' },
+  { key: 'Ctrl + + / -', desc: 'Zoom in / out' },
+  { key: 'Ctrl + 0', desc: 'Reset zoom to 100%' },
   { key: 'Ctrl + Z', desc: 'Undo' },
   { key: 'Ctrl + Y', desc: 'Redo' },
   { key: 'Ctrl + A', desc: 'Select all elements' },

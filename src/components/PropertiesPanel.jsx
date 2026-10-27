@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   Copy,
   Trash2,
@@ -9,9 +8,6 @@ import {
   X,
   Group,
   Ungroup,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
 } from 'lucide-react';
 import {
   STROKE_COLORS,
@@ -59,7 +55,11 @@ export default function PropertiesPanel({
   const isLineOrArrowOrPencil = ['line', 'arrow', 'pencil'].includes(selectedElement?.type);
 
   const update = (key, value) => {
-    onUpdateStyle(key, value);
+    if (typeof key === 'object') {
+      onUpdateStyle(key);
+    } else {
+      onUpdateStyle({ [key]: value });
+    }
   };
 
   if (!isOpen) {
@@ -601,8 +601,10 @@ export default function PropertiesPanel({
           <div className="pt-1">
             <button
               onClick={() => {
-                update('width', selectedElement.naturalWidth);
-                update('height', selectedElement.naturalHeight);
+                update({
+                  width: selectedElement.naturalWidth,
+                  height: selectedElement.naturalHeight,
+                });
               }}
               className={`w-full py-1.5 px-2 rounded-lg border flex items-center justify-center gap-1.5 text-[11px] font-medium transition-colors ${
                 isDarkMode

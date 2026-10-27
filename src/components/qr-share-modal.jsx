@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Copy, Check, X, Users, Wifi, LogOut, Radio } from 'lucide-react';
 
@@ -6,7 +6,6 @@ export default function QrShareModal({
   isOpen,
   onClose,
   shareUrl,
-  peerId,
   connectedCount = 0,
   isHost = true,
   onDisconnect,

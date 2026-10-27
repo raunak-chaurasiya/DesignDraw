@@ -69,7 +69,7 @@ export function findNearestAnchor(px, py, elements, excludeId = null, threshold 
 }
 
 /**
- * Update all arrows and lines connected to an element that just moved or resized
+ * Update all arrows and lines connected to a specific moved or resized element
  */
 export function updateConnectedArrows(elements, movedElement) {
   if (!movedElement) return elements;
@@ -100,4 +100,61 @@ export function updateConnectedArrows(elements, movedElement) {
 
     return changed ? updated : el;
   });
+}
+
+/**
+ * Centralized scene geometry resolver:
+ * Recomputes all connector endpoints in O(N) time for any scene changes
+ * (multi-select move, alignment, font size changes, table expansion, image reset).
+ */
+export function updateAllConnectedArrows(elements) {
+  if (!elements || elements.length === 0) return elements;
+
+  // Build fast element lookup map
+  const elementMap = new Map();
+  for (const el of elements) {
+    if (el && el.id) {
+      elementMap.set(el.id, el);
+    }
+  }
+
+  let anyChanged = false;
+
+  const result = elements.map((el) => {
+    if (!el || (el.type !== 'arrow' && el.type !== 'line')) {
+      return el;
+    }
+
+    let updated = { ...el };
+    let changed = false;
+
+    if (el.startBinding && el.startBinding.elementId) {
+      const target = elementMap.get(el.startBinding.elementId);
+      if (target) {
+        const pos = getAnchorPosition(target, el.startBinding.anchor);
+        if (pos && (pos.x !== el.x1 || pos.y !== el.y1)) {
+          updated.x1 = pos.x;
+          updated.y1 = pos.y;
+          changed = true;
+        }
+      }
+    }
+
+    if (el.endBinding && el.endBinding.elementId) {
+      const target = elementMap.get(el.endBinding.elementId);
+      if (target) {
+        const pos = getAnchorPosition(target, el.endBinding.anchor);
+        if (pos && (pos.x !== el.x2 || pos.y !== el.y2)) {
+          updated.x2 = pos.x;
+          updated.y2 = pos.y;
+          changed = true;
+        }
+      }
+    }
+
+    if (changed) anyChanged = true;
+    return changed ? updated : el;
+  });
+
+  return anyChanged ? result : elements;
 }

@@ -1,6 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Download, X, Image as ImageIcon, Check, Copy } from 'lucide-react';
-import { exportToJpg, exportToPng, exportToJson, generateExportCanvas } from '../utils/export';
+import { useState, useEffect, useRef } from 'react';
+import { Download, X, Image as ImageIcon, Check, Copy, AlertCircle } from 'lucide-react';
+import { exportToJpg, exportToPng, exportToJson, generateExportCanvas, prepareElementsForExport } from '../utils/export';
+
+function canvasToBlobAsync(canvas, type = 'image/png', quality = 0.95) {
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), type, quality);
+  });
+}
 
 export default function ExportModal({
   isOpen,
@@ -13,70 +19,108 @@ export default function ExportModal({
   const [bgColor, setBgColor] = useState(isDarkMode ? '#121212' : '#ffffff');
   const [scale, setScale] = useState(2);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(null);
+  const [isExporting, setIsExporting] = useState(false);
   const previewCanvasRef = useRef(null);
 
-  // Generate live preview whenever elements, format, bgColor, scale change
+  // Generate live preview when elements, format, bgColor, scale change
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || format === 'json') return;
 
-    const canvas = generateExportCanvas(elements, {
-      backgroundColor: format === 'png' && bgColor === 'transparent' ? 'transparent' : bgColor,
-      scale: 1, // preview doesn't need huge scale
-      padding: 30,
+    let isCurrent = true;
+
+    prepareElementsForExport(elements).then(() => {
+      if (!isCurrent) return;
+
+      const canvas = generateExportCanvas(elements, {
+        backgroundColor: format === 'png' && bgColor === 'transparent' ? 'transparent' : bgColor,
+        scale: 1, // preview doesn't need high retina scale
+        padding: 30,
+        maxDimension: 1024,
+      });
+
+      if (previewCanvasRef.current) {
+        const container = previewCanvasRef.current;
+        container.innerHTML = '';
+        canvas.className = 'max-w-full max-h-[260px] object-contain rounded-lg border border-white/10 shadow-md';
+        container.appendChild(canvas);
+      }
     });
 
-    if (previewCanvasRef.current) {
-      const container = previewCanvasRef.current;
-      container.innerHTML = '';
-      canvas.className = 'max-w-full max-h-[260px] object-contain rounded-lg border border-white/10 shadow-md';
-      container.appendChild(canvas);
-    }
+    return () => {
+      isCurrent = false;
+    };
   }, [isOpen, elements, format, bgColor, scale]);
 
   if (!isOpen) return null;
 
-  const handleExport = () => {
-    if (format === 'jpg') {
-      exportToJpg(elements, {
-        filename,
-        backgroundColor: bgColor === 'transparent' ? '#ffffff' : bgColor,
-        scale,
-      });
-    } else if (format === 'png') {
-      exportToPng(elements, {
-        filename,
-        backgroundColor: bgColor,
-        scale,
-      });
-    } else if (format === 'json') {
-      exportToJson(elements);
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      if (format === 'jpg') {
+        await exportToJpg(elements, {
+          filename,
+          backgroundColor: bgColor === 'transparent' ? '#ffffff' : bgColor,
+          scale,
+        });
+      } else if (format === 'png') {
+        await exportToPng(elements, {
+          filename,
+          backgroundColor: bgColor,
+          scale,
+        });
+      } else if (format === 'json') {
+        exportToJson(elements, { theme: isDarkMode ? 'dark' : 'light' });
+      }
+      onClose();
+    } catch (err) {
+      console.error('Export failed:', err);
+      alert('Export failed: ' + err.message);
+    } finally {
+      setIsExporting(false);
     }
-    onClose();
   };
 
   const handleCopyToClipboard = async () => {
+    setCopyError(null);
     try {
+      await prepareElementsForExport(elements);
+
       const canvas = generateExportCanvas(elements, {
         backgroundColor: format === 'jpg' && bgColor === 'transparent' ? '#ffffff' : bgColor,
         scale: 2,
+        maxDimension: 2048,
       });
 
-      canvas.toBlob(async (blob) => {
-        if (!blob) return;
-        await navigator.clipboard.write([
-          new ClipboardItem({ 'image/png': blob }),
-        ]);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      });
+      const blob = await canvasToBlobAsync(canvas, 'image/png');
+      if (!blob) {
+        throw new Error('Failed to create image blob');
+      }
+
+      if (!navigator.clipboard || !navigator.clipboard.write) {
+        throw new Error('Clipboard image writing is not supported in this browser');
+      }
+
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blob }),
+      ]);
+
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Clipboard copy failed:', err);
+      setCopyError(err.message || 'Clipboard copy failed');
+      setTimeout(() => setCopyError(null), 3000);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto"
+      onClick={onClose}
+    >
       <div
+        onClick={(e) => e.stopPropagation()}
         className={`w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-2xl border p-4 sm:p-6 shadow-2xl transition-all ${
           isDarkMode
             ? 'bg-[#1e1e24] border-[#34343e] text-neutral-100'
@@ -92,7 +136,7 @@ export default function ExportModal({
             </div>
             <div>
               <h2 className="text-base font-semibold">Export Diagram</h2>
-              <p className="text-xs text-neutral-400">Export high-resolution JPG or PNG for sharing</p>
+              <p className="text-xs text-neutral-400">Export high-resolution image or JSON for sharing</p>
             </div>
           </div>
           <button
@@ -103,159 +147,133 @@ export default function ExportModal({
           </button>
         </div>
 
-        {/* Live Preview Container */}
-        <div className="my-4 flex flex-col items-center justify-center p-4 rounded-xl bg-black/25 min-h-[160px] max-h-[280px] overflow-hidden">
-          <div ref={previewCanvasRef} className="flex items-center justify-center" />
-          <span className="text-[11px] text-neutral-400 mt-2">
-            {elements.length} element{elements.length !== 1 ? 's' : ''} ready to export
-          </span>
-        </div>
-
-        {/* Format Selector Tabs */}
-        <div className="mb-4">
-          <label className="block text-xs font-medium text-neutral-400 mb-1.5">Export Format</label>
-          <div className="grid grid-cols-3 gap-2 p-1 bg-black/20 rounded-xl">
-            <button
-              onClick={() => setFormat('jpg')}
-              className={`py-2 text-xs font-semibold rounded-lg transition-all flex flex-col items-center gap-0.5 ${
-                format === 'jpg'
-                  ? 'bg-[#6965db] text-white shadow-md'
-                  : 'text-neutral-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <span>JPG Image</span>
-              <span className="text-[10px] opacity-80 font-normal">Standard / Web</span>
-            </button>
-            <button
-              onClick={() => setFormat('png')}
-              className={`py-2 text-xs font-semibold rounded-lg transition-all flex flex-col items-center gap-0.5 ${
-                format === 'png'
-                  ? 'bg-[#6965db] text-white shadow-md'
-                  : 'text-neutral-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <span>PNG Image</span>
-              <span className="text-[10px] opacity-80 font-normal">Transparent / Crisp</span>
-            </button>
-            <button
-              onClick={() => setFormat('json')}
-              className={`py-2 text-xs font-semibold rounded-lg transition-all flex flex-col items-center gap-0.5 ${
-                format === 'json'
-                  ? 'bg-[#6965db] text-white shadow-md'
-                  : 'text-neutral-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <span>Project JSON</span>
-              <span className="text-[10px] opacity-80 font-normal">Editable file</span>
-            </button>
+        {/* Live Preview Container (skipped for JSON format) */}
+        {format !== 'json' ? (
+          <div className="my-4 p-3 rounded-xl bg-black/30 border border-white/5 flex flex-col items-center justify-center min-h-[140px] overflow-hidden">
+            <div ref={previewCanvasRef} className="flex items-center justify-center w-full" />
+            <span className="text-[10px] text-neutral-500 mt-2 font-mono">Live Resolution Preview</span>
           </div>
-        </div>
-
-        {/* Filename & Background Options */}
-        {format !== 'json' && (
-          <div className="grid grid-cols-2 gap-3 mb-4 text-xs">
-            <div>
-              <label className="block text-neutral-400 mb-1 font-medium">Filename</label>
-              <input
-                type="text"
-                value={filename}
-                onChange={(e) => setFilename(e.target.value)}
-                placeholder="diagram-name"
-                className={`w-full py-1.5 px-3 rounded-lg border text-xs outline-none ${
-                  isDarkMode
-                    ? 'bg-[#16161b] border-[#34343e] text-white focus:border-[#6965db]'
-                    : 'bg-neutral-50 border-neutral-300 text-neutral-900 focus:border-[#6965db]'
-                }`}
-              />
-            </div>
-
-            <div>
-              <label className="block text-neutral-400 mb-1 font-medium">Background</label>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setBgColor('#121212')}
-                  title="Dark theme background"
-                  className={`w-7 h-7 rounded-lg border bg-[#121212] ${
-                    bgColor === '#121212' ? 'ring-2 ring-[#6965db] border-white' : 'border-neutral-600'
-                  }`}
-                />
-                <button
-                  type="button"
-                  onClick={() => setBgColor('#ffffff')}
-                  title="Crisp white background"
-                  className={`w-7 h-7 rounded-lg border bg-white ${
-                    bgColor === '#ffffff' ? 'ring-2 ring-[#6965db] border-white' : 'border-neutral-300'
-                  }`}
-                />
-                {format === 'png' && (
-                  <button
-                    type="button"
-                    onClick={() => setBgColor('transparent')}
-                    title="Transparent background"
-                    className={`w-7 h-7 rounded-lg border border-dashed border-neutral-500 text-[10px] font-bold text-neutral-400 flex items-center justify-center ${
-                      bgColor === 'transparent' ? 'ring-2 ring-[#6965db]' : ''
-                    }`}
-                  >
-                    None
-                  </button>
-                )}
-                {/* Custom Color input */}
-                <label className="w-7 h-7 rounded-lg border border-dashed border-neutral-500 flex items-center justify-center cursor-pointer text-xs">
-                  +
-                  <input
-                    type="color"
-                    value={bgColor === 'transparent' ? '#ffffff' : bgColor}
-                    onChange={(e) => setBgColor(e.target.value)}
-                    className="opacity-0 absolute w-0 h-0"
-                  />
-                </label>
-              </div>
-            </div>
+        ) : (
+          <div className="my-4 p-4 rounded-xl bg-black/30 border border-white/5 text-center text-xs text-neutral-400">
+            Export full scene as a reusable JSON project file.
           </div>
         )}
 
-        {/* Quality Scale */}
-        {format !== 'json' && (
-          <div className="mb-5 flex items-center justify-between text-xs">
-            <span className="text-neutral-400 font-medium">Resolution Quality:</span>
-            <div className="flex items-center gap-1">
+        {/* Export Format Selector */}
+        <div className="space-y-4 text-xs">
+          <div>
+            <label className="block font-medium text-neutral-300 mb-1.5">Format</label>
+            <div className="grid grid-cols-3 gap-2">
               {[
-                { label: '1x (Standard)', val: 1 },
-                { label: '2x (High Def)', val: 2 },
-                { label: '3x (Ultra HD)', val: 3 },
-              ].map((s) => (
+                { id: 'jpg', label: 'JPG Image', desc: 'Solid background' },
+                { id: 'png', label: 'PNG Image', desc: 'Transparent or solid' },
+                { id: 'json', label: 'JSON Project', desc: 'Importable data' },
+              ].map((f) => (
                 <button
-                  key={s.val}
-                  onClick={() => setScale(s.val)}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
-                    scale === s.val
-                      ? 'bg-[#6965db] text-white'
-                      : isDarkMode
-                      ? 'bg-white/5 text-neutral-400 hover:text-white'
-                      : 'bg-neutral-100 text-neutral-600 hover:text-neutral-900'
+                  key={f.id}
+                  onClick={() => setFormat(f.id)}
+                  className={`p-2.5 rounded-xl border text-left transition-all ${
+                    format === f.id
+                      ? 'border-[#6965db] bg-[#6965db]/15 text-white ring-1 ring-[#6965db]'
+                      : 'border-white/10 bg-white/5 text-neutral-400 hover:bg-white/10 hover:text-white'
                   }`}
                 >
-                  {s.label}
+                  <div className="font-semibold">{f.label}</div>
+                  <div className="text-[10px] opacity-70 mt-0.5">{f.desc}</div>
                 </button>
               ))}
             </div>
           </div>
+
+          {/* Filename input */}
+          <div>
+            <label className="block font-medium text-neutral-300 mb-1.5">Filename</label>
+            <input
+              type="text"
+              value={filename}
+              onChange={(e) => setFilename(e.target.value)}
+              className={`w-full px-3 py-2 rounded-xl border text-xs outline-none focus:border-[#6965db] ${
+                isDarkMode
+                  ? 'bg-[#18181f] border-[#34343e] text-white'
+                  : 'bg-neutral-50 border-neutral-300 text-neutral-900'
+              }`}
+            />
+          </div>
+
+          {/* Background color options for image export */}
+          {format !== 'json' && (
+            <div>
+              <label className="block font-medium text-neutral-300 mb-1.5">Canvas Background</label>
+              <div className="flex items-center gap-2">
+                {[
+                  { label: 'Dark', value: '#121212' },
+                  { label: 'Light', value: '#ffffff' },
+                  ...(format === 'png' ? [{ label: 'Transparent', value: 'transparent' }] : []),
+                ].map((bg) => (
+                  <button
+                    key={bg.value}
+                    onClick={() => setBgColor(bg.value)}
+                    className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                      bgColor === bg.value
+                        ? 'border-[#6965db] bg-[#6965db]/20 text-[#827fe2]'
+                        : 'border-white/10 hover:bg-white/5 text-neutral-400'
+                    }`}
+                  >
+                    {bg.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Resolution Scale */}
+          {format !== 'json' && (
+            <div>
+              <label className="block font-medium text-neutral-300 mb-1.5">Export Scale</label>
+              <div className="flex items-center gap-2">
+                {[
+                  { label: '1x (Standard)', value: 1 },
+                  { label: '2x (Sharp Retina)', value: 2 },
+                  { label: '3x (Ultra Print)', value: 3 },
+                ].map((sc) => (
+                  <button
+                    key={sc.value}
+                    onClick={() => setScale(sc.value)}
+                    className={`flex-1 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                      scale === sc.value
+                        ? 'border-[#6965db] bg-[#6965db]/20 text-[#827fe2]'
+                        : 'border-white/10 hover:bg-white/5 text-neutral-400'
+                    }`}
+                  >
+                    {sc.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Copy Error Notice */}
+        {copyError && (
+          <div className="mt-3 p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-1.5">
+            <AlertCircle size={14} />
+            <span>{copyError}</span>
+          </div>
         )}
 
-        {/* Action Buttons */}
-        <div className="flex items-center justify-between gap-3 pt-3 border-t border-white/10">
+        {/* Actions */}
+        <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between gap-3">
           {format !== 'json' ? (
             <button
               onClick={handleCopyToClipboard}
-              className={`py-2 px-3 rounded-xl border text-xs font-medium transition-all flex items-center gap-1.5 ${
-                isDarkMode
-                  ? 'border-[#34343e] hover:bg-white/5 text-neutral-300'
-                  : 'border-neutral-200 hover:bg-neutral-100 text-neutral-700'
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium border transition-colors ${
+                copied
+                  ? 'border-emerald-500 bg-emerald-500/20 text-emerald-400'
+                  : 'border-white/10 hover:bg-white/5 text-neutral-300'
               }`}
             >
-              {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
-              {copied ? 'Copied to clipboard!' : 'Copy to Clipboard'}
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+              {copied ? 'Copied PNG!' : 'Copy to Clipboard'}
             </button>
           ) : (
             <div />
@@ -264,16 +282,17 @@ export default function ExportModal({
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="py-2 px-3 text-xs text-neutral-400 hover:text-white transition-colors"
+              className="px-4 py-2 rounded-xl text-xs font-medium border border-white/10 hover:bg-white/5 text-neutral-400 transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleExport}
-              className="py-2 px-4 rounded-xl bg-[#6965db] hover:bg-[#5b57d1] text-white text-xs font-semibold shadow-lg shadow-[#6965db]/25 transition-all flex items-center gap-1.5"
+              disabled={isExporting}
+              className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-semibold bg-[#6965db] hover:bg-[#5b57d1] text-white shadow-lg shadow-indigo-500/20 transition-all disabled:opacity-50"
             >
-              <Download size={15} />
-              Export {format.toUpperCase()}
+              <Download size={14} />
+              {isExporting ? 'Exporting...' : 'Export File'}
             </button>
           </div>
         </div>

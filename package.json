@@ -18,7 +18,8 @@
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "roughjs": "^4.6.6",
-    "tailwindcss": "^4.3.3"
+    "tailwindcss": "^4.3.3",
+    "zustand": "^5.0.16"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

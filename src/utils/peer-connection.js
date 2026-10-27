@@ -6,6 +6,7 @@ class PeerManager {
     this.myPeerId = null;
     this.connections = new Map(); // peerId -> DataConnection
     this.status = 'disconnected'; // 'disconnected' | 'connecting' | 'connected' | 'error'
+    this.initPromise = null;
 
     // Callbacks
     this.onStatusChange = null;
@@ -23,7 +24,7 @@ class PeerManager {
   }
 
   /**
-   * Initialize local Peer instance
+   * Initialize local Peer instance with single in-flight Promise guard
    * @param {string|null} preferredId - Optional custom ID, otherwise PeerJS cloud broker assigns one
    */
   initialize(preferredId = null) {
@@ -31,9 +32,24 @@ class PeerManager {
       return Promise.resolve(this.myPeerId);
     }
 
+    if (this.initPromise) {
+      return this.initPromise;
+    }
+
     this.setStatus('connecting');
 
-    return new Promise((resolve, reject) => {
+    this.initPromise = new Promise((resolve, reject) => {
+      let timeoutId = null;
+      let settled = false;
+
+      const cleanup = () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        this.initPromise = null;
+      };
+
       try {
         const peerOptions = {
           debug: 1,
@@ -46,48 +62,69 @@ class PeerManager {
           },
         };
 
-        this.peer = preferredId ? new Peer(preferredId, peerOptions) : new Peer(peerOptions);
+        const peerInstance = preferredId ? new Peer(preferredId, peerOptions) : new Peer(peerOptions);
+        this.peer = peerInstance;
 
-        const timeout = setTimeout(() => {
-          if (!this.myPeerId) {
+        timeoutId = setTimeout(() => {
+          if (!settled && !this.myPeerId) {
+            settled = true;
             this.setStatus('error');
+            cleanup();
+            try {
+              peerInstance.destroy();
+            } catch {
+              // ignore
+            }
             reject(new Error('Peer connection timed out. Check your internet connection.'));
           }
         }, 15000);
 
-        this.peer.on('open', (id) => {
-          clearTimeout(timeout);
+        peerInstance.on('open', (id) => {
+          if (settled) return;
+          settled = true;
+          cleanup();
           this.myPeerId = id;
           this.setStatus('connected');
           resolve(id);
         });
 
         // Listen for incoming peer connections
-        this.peer.on('connection', (conn) => {
+        peerInstance.on('connection', (conn) => {
           this.setupConnection(conn);
         });
 
-        this.peer.on('error', (err) => {
+        peerInstance.on('error', (err) => {
           console.error('[PeerManager] Peer error:', err);
           if (this.onError) this.onError(err);
-          this.setStatus('error');
+          if (!settled) {
+            settled = true;
+            cleanup();
+            this.setStatus('error');
+            reject(err);
+          }
         });
 
-        this.peer.on('disconnected', () => {
+        peerInstance.on('disconnected', () => {
           this.setStatus('disconnected');
           if (this.peer && !this.peer.destroyed) {
             try {
               this.peer.reconnect();
-            } catch (e) {
-              console.warn('[PeerManager] Reconnect error:', e);
+            } catch {
+              // ignore
             }
           }
         });
       } catch (err) {
-        this.setStatus('error');
-        reject(err);
+        if (!settled) {
+          settled = true;
+          cleanup();
+          this.setStatus('error');
+          reject(err);
+        }
       }
     });
+
+    return this.initPromise;
   }
 
   /**
@@ -99,10 +136,16 @@ class PeerManager {
     }
 
     if (this.connections.has(remotePeerId)) {
-      return Promise.resolve(this.connections.get(remotePeerId));
+      const existing = this.connections.get(remotePeerId);
+      if (existing && existing.open) {
+        return Promise.resolve(existing);
+      }
     }
 
     return new Promise((resolve, reject) => {
+      let timeoutId = null;
+      let settled = false;
+
       const conn = this.peer.connect(remotePeerId, {
         reliable: true,
         metadata: {
@@ -111,18 +154,35 @@ class PeerManager {
         },
       });
 
-      const timeout = setTimeout(() => {
-        reject(new Error(`Connecting to peer ${remotePeerId} timed out.`));
+      timeoutId = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          try {
+            conn.close();
+          } catch {
+            // ignore
+          }
+          reject(new Error(`Connecting to peer ${remotePeerId} timed out.`));
+        }
       }, 12000);
 
       conn.on('open', () => {
-        clearTimeout(timeout);
+        if (settled) return;
+        settled = true;
+        if (timeoutId) clearTimeout(timeoutId);
         this.setupConnection(conn);
         resolve(conn);
       });
 
       conn.on('error', (err) => {
-        clearTimeout(timeout);
+        if (settled) return;
+        settled = true;
+        if (timeoutId) clearTimeout(timeoutId);
+        try {
+          conn.close();
+        } catch {
+          // ignore
+        }
         console.error(`[PeerManager] Connection error with ${remotePeerId}:`, err);
         reject(err);
       });
@@ -171,10 +231,11 @@ class PeerManager {
   }
 
   /**
-   * Broadcast data to all connected peers
+   * Broadcast data to all connected peers, optionally excluding one peer ID
    */
-  broadcast(data) {
+  broadcast(data, excludePeerId = null) {
     for (const [peerId, conn] of this.connections.entries()) {
+      if (excludePeerId && peerId === excludePeerId) continue;
       if (conn && conn.open) {
         try {
           conn.send(data);
@@ -214,7 +275,7 @@ class PeerManager {
     for (const conn of this.connections.values()) {
       try {
         conn.close();
-      } catch (e) {
+      } catch {
         // ignore
       }
     }
@@ -223,13 +284,14 @@ class PeerManager {
     if (this.peer && !this.peer.destroyed) {
       try {
         this.peer.destroy();
-      } catch (e) {
+      } catch {
         // ignore
       }
     }
 
     this.peer = null;
     this.myPeerId = null;
+    this.initPromise = null;
     this.setStatus('disconnected');
   }
 }
@@ -242,10 +304,6 @@ export function getPeerManager() {
     instance = new PeerManager();
   }
   return instance;
-}
-
-export function createPeerConnectionManager() {
-  return getPeerManager();
 }
 
 export { PeerManager };
