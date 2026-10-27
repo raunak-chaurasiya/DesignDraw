@@ -26,6 +26,8 @@ export default function WhiteboardCanvas() {
   const canvasRef = useRef(null);
   const eraserFxRef = useRef(new EraserEffectManager());
   const lastCursorBroadcastRef = useRef(0);
+  const animFrameRef = useRef(null);
+  const requestRenderRef = useRef(null);
 
   // Zustand Store selectors
   const elements = useCanvasStore((state) => state.elements);
@@ -38,6 +40,7 @@ export default function WhiteboardCanvas() {
   const isDarkMode = useCanvasStore((state) => state.isDarkMode);
   const showGrid = useCanvasStore((state) => state.showGrid);
   const editingText = useCanvasStore((state) => state.editingText);
+  const editingCell = useCanvasStore((state) => state.editingCell);
 
   const setElements = useCanvasStore((state) => state.setElements);
   const pushHistory = useCanvasStore((state) => state.pushHistory);
@@ -47,6 +50,8 @@ export default function WhiteboardCanvas() {
   const setZoom = useCanvasStore((state) => state.setZoom);
   const setEditingText = useCanvasStore((state) => state.setEditingText);
   const setEditingCell = useCanvasStore((state) => state.setEditingCell);
+  const finishEditingText = useCanvasStore((state) => state.finishEditingText);
+  const finishEditingCell = useCanvasStore((state) => state.finishEditingCell);
   const showToast = useCanvasStore((state) => state.showToast);
 
   const broadcastCursor = useCollabStore((state) => state.broadcastCursor);
@@ -122,7 +127,11 @@ export default function WhiteboardCanvas() {
 
     // 3. Render all scene elements
     for (const el of elements) {
-      if (editingText && el.id === editingText.id && el.type === 'text') {
+      if (editingText && el.id === editingText.id) {
+        if (el.type === 'text' || el.type === 'sticky') {
+          continue;
+        }
+        renderElement(ctx, rc, { ...el, text: '' }, false, handleImageLoaded);
         continue;
       }
       const isSelected = selectedElementIds.includes(el.id);
@@ -156,11 +165,24 @@ export default function WhiteboardCanvas() {
       ctx.restore();
     }
 
-    // 7. Render Eraser Particles
-    eraserFxRef.current.render(ctx, zoom);
+    // 7. Render Eraser Particles & Visual Ring
+    const isErasing = actionRef.current === 'erasing';
+    const hasMoreFrames = eraserFxRef.current.render(ctx, isErasing, zoom);
 
     ctx.restore(); // camera
     ctx.restore(); // dpr
+
+    // Loop animation frames if particles or trails are decaying
+    if (hasMoreFrames) {
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current);
+      }
+      animFrameRef.current = requestAnimationFrame(() => {
+        if (requestRenderRef.current) {
+          requestRenderRef.current();
+        }
+      });
+    }
   }, [
     elements,
     selectedElementIds,
@@ -174,6 +196,27 @@ export default function WhiteboardCanvas() {
     canvasDimensions,
     handleImageLoaded,
   ]);
+
+  useEffect(() => {
+    requestRenderRef.current = requestRender;
+  });
+
+  // Cleanup active animation frames on unmount
+  useEffect(() => {
+    return () => {
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current);
+      }
+    };
+  }, []);
+
+  // When switching away from eraser, clear its cursor preview
+  useEffect(() => {
+    if (activeTool !== TOOLS.ERASER) {
+      eraserFxRef.current.clearCursor();
+      requestRender();
+    }
+  }, [activeTool, requestRender]);
 
   // Synchronize canvas backing-store with window/device dimensions
   useEffect(() => {
@@ -293,6 +336,14 @@ export default function WhiteboardCanvas() {
     const { x, y } = getCanvasCoords(e.clientX, e.clientY);
     dragStartRef.current = { x, y, clientX: e.clientX, clientY: e.clientY };
 
+    // Commit any open inline editors when clicking on canvas
+    if (editingText) {
+      finishEditingText();
+    }
+    if (editingCell) {
+      finishEditingCell(true);
+    }
+
     // Space panning or Hand tool or middle mouse button
     if (activeTool === TOOLS.HAND || e.button === 1 || e.spaceKey) {
       actionRef.current = 'panning';
@@ -305,13 +356,27 @@ export default function WhiteboardCanvas() {
       actionRef.current = 'erasing';
       setAction('erasing');
       eraserFxRef.current.setCursor(x, y);
+      eraserFxRef.current.addTrailPoint(x, y);
 
-      const hit = elements.find((el) => isPointInElement(x, y, el, 14 / zoom));
+      const liveElements = useCanvasStore.getState().elements;
+      let hit = null;
+      for (let i = liveElements.length - 1; i >= 0; i--) {
+        if (isPointInElement(x, y, liveElements[i], 16 / zoom)) {
+          hit = liveElements[i];
+          break;
+        }
+      }
+
       if (hit) {
         eraserFxRef.current.explode(x, y, hit.strokeColor || '#ff6b6b');
-        const remaining = elements.filter((el) => el.id !== hit.id);
+        const remaining = liveElements.filter((el) => el.id !== hit.id);
         setElements(remaining);
+        const currentSelected = useCanvasStore.getState().selectedElementIds;
+        if (currentSelected.includes(hit.id)) {
+          setSelectedElementIds(currentSelected.filter((id) => id !== hit.id));
+        }
       }
+      requestRender();
       return;
     }
 
@@ -543,15 +608,30 @@ export default function WhiteboardCanvas() {
       return;
     }
 
-    // Erasing
+    // Erasing (while mouse is held down)
     if (currentAction === 'erasing') {
       eraserFxRef.current.setCursor(x, y);
-      const hit = elements.find((el) => isPointInElement(x, y, el, 14 / zoom));
+      eraserFxRef.current.addTrailPoint(x, y);
+
+      const liveElements = useCanvasStore.getState().elements;
+      let hit = null;
+      for (let i = liveElements.length - 1; i >= 0; i--) {
+        if (isPointInElement(x, y, liveElements[i], 16 / zoom)) {
+          hit = liveElements[i];
+          break;
+        }
+      }
+
       if (hit) {
         eraserFxRef.current.explode(x, y, hit.strokeColor || '#ff6b6b');
-        const remaining = elements.filter((el) => el.id !== hit.id);
+        const remaining = liveElements.filter((el) => el.id !== hit.id);
         setElements(remaining);
+        const currentSelected = useCanvasStore.getState().selectedElementIds;
+        if (currentSelected.includes(hit.id)) {
+          setSelectedElementIds(currentSelected.filter((id) => id !== hit.id));
+        }
       }
+      requestRender();
       return;
     }
 
@@ -715,6 +795,12 @@ export default function WhiteboardCanvas() {
       return;
     }
 
+    // Eraser hover cursor preview
+    if (currentAction === 'none' && activeTool === TOOLS.ERASER) {
+      eraserFxRef.current.setCursor(x, y);
+      requestRender();
+    }
+
     // Hover anchor detection when tool is arrow/line
     if (currentAction === 'none' && (activeTool === TOOLS.ARROW || activeTool === TOOLS.LINE)) {
       const nearAnchor = findNearestAnchor(x, y, elements, null, 28);
@@ -777,8 +863,16 @@ export default function WhiteboardCanvas() {
       }
     }
 
-    if (activeAct === 'moving' || activeAct === 'resizing' || activeAct === 'erasing') {
-      pushHistory(elements);
+    if (activeAct === 'erasing') {
+      const currentLiveElements = useCanvasStore.getState().elements;
+      const history = useCanvasStore.getState().history;
+      const historyIndex = useCanvasStore.getState().historyIndex;
+      const lastSnapshot = history[historyIndex] || [];
+      if (currentLiveElements.length !== lastSnapshot.length) {
+        pushHistory(currentLiveElements);
+      }
+    } else if (activeAct === 'moving' || activeAct === 'resizing') {
+      pushHistory(useCanvasStore.getState().elements);
     }
 
     if (activeAct === 'selecting' && selectionBox) {
@@ -993,6 +1087,12 @@ export default function WhiteboardCanvas() {
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onPointerLeave={() => {
+          if (activeTool === TOOLS.ERASER) {
+            eraserFxRef.current.clearCursor();
+            requestRender();
+          }
+        }}
         onDoubleClick={handleDoubleClick}
         onWheel={handleWheel}
         onTouchStart={handleTouchStart}

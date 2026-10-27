@@ -267,16 +267,20 @@ export function isPointInElement(px, py, element, threshold = 8) {
     const cx = bounds.minX + rx;
     const cy = bounds.minY + ry;
     if (rx === 0 || ry === 0) return false;
-    const normalized = ((px - cx) ** 2) / (rx ** 2) + ((py - cy) ** 2) / (ry ** 2);
-    return normalized <= 1.25;
+    const expRx = rx + threshold;
+    const expRy = ry + threshold;
+    const normalized = ((px - cx) ** 2) / (expRx ** 2) + ((py - cy) ** 2) / (expRy ** 2);
+    return normalized <= 1.0;
   }
 
   if (type === 'diamond') {
     const cx = (bounds.minX + bounds.maxX) / 2;
     const cy = (bounds.minY + bounds.maxY) / 2;
-    const dx = Math.abs(px - cx) / (bounds.width / 2 || 1);
-    const dy = Math.abs(py - cy) / (bounds.height / 2 || 1);
-    return dx + dy <= 1.15;
+    const halfW = bounds.width / 2 + threshold;
+    const halfH = bounds.height / 2 + threshold;
+    const dx = Math.abs(px - cx) / (halfW || 1);
+    const dy = Math.abs(py - cy) / (halfH || 1);
+    return dx + dy <= 1.0;
   }
 
   return false;

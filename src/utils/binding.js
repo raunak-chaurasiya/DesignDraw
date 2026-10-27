@@ -137,6 +137,9 @@ export function updateAllConnectedArrows(elements) {
           updated.y1 = pos.y;
           changed = true;
         }
+      } else {
+        updated.startBinding = undefined;
+        changed = true;
       }
     }
 
@@ -149,6 +152,9 @@ export function updateAllConnectedArrows(elements) {
           updated.y2 = pos.y;
           changed = true;
         }
+      } else {
+        updated.endBinding = undefined;
+        changed = true;
       }
     }
 

@@ -1,29 +1,28 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { useCanvasStore } from '../../store/useCanvasStore';
 import { Check, X } from 'lucide-react';
 
-export default function TableCellEditor() {
-  const editingCell = useCanvasStore((state) => state.editingCell);
+function TableCellEditorInner({ editingCell }) {
   const finishEditingCell = useCanvasStore((state) => state.finishEditingCell);
   const isDarkMode = useCanvasStore((state) => state.isDarkMode);
   const zoom = useCanvasStore((state) => state.zoom);
   const pan = useCanvasStore((state) => state.pan);
 
+  const [text, setText] = useState(editingCell.text || '');
   const cellInputRef = useRef(null);
 
+  // Focus and select once on mount for this specific table cell
   useEffect(() => {
-    if (editingCell && cellInputRef.current) {
-      const timer = setTimeout(() => {
-        if (cellInputRef.current) {
-          cellInputRef.current.focus();
+    const timer = setTimeout(() => {
+      if (cellInputRef.current) {
+        cellInputRef.current.focus();
+        if (editingCell.text) {
           cellInputRef.current.select();
         }
-      }, 40);
-      return () => clearTimeout(timer);
-    }
-  }, [editingCell]);
-
-  if (!editingCell) return null;
+      }
+    }, 40);
+    return () => clearTimeout(timer);
+  }, [editingCell.text]);
 
   const screenX = editingCell.cellX * zoom + pan.x;
   const screenY = editingCell.cellY * zoom + pan.y;
@@ -35,7 +34,7 @@ export default function TableCellEditor() {
 
     if (e.key === 'Enter' || e.key === 'Tab') {
       e.preventDefault();
-      finishEditingCell(true);
+      finishEditingCell(true, text);
     } else if (e.key === 'Escape') {
       e.preventDefault();
       finishEditingCell(false);
@@ -59,12 +58,8 @@ export default function TableCellEditor() {
       <input
         ref={cellInputRef}
         type="text"
-        value={editingCell.text}
-        onChange={(e) => {
-          useCanvasStore.setState({
-            editingCell: { ...editingCell, text: e.target.value },
-          });
-        }}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder="Cell text..."
         style={{
@@ -84,7 +79,7 @@ export default function TableCellEditor() {
           <X size={12} />
         </button>
         <button
-          onClick={() => finishEditingCell(true)}
+          onClick={() => finishEditingCell(true, text)}
           title="Save"
           className="p-0.5 bg-[#6965db] text-white rounded hover:bg-[#5b57d1]"
         >
@@ -93,4 +88,11 @@ export default function TableCellEditor() {
       </div>
     </div>
   );
+}
+
+export default function TableCellEditor() {
+  const editingCell = useCanvasStore((state) => state.editingCell);
+  if (!editingCell) return null;
+  const cellKey = `${editingCell.tableId}-${editingCell.rowIndex}-${editingCell.colIndex}`;
+  return <TableCellEditorInner key={cellKey} editingCell={editingCell} />;
 }

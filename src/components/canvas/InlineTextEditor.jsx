@@ -1,9 +1,8 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { useCanvasStore } from '../../store/useCanvasStore';
 import { Check, X } from 'lucide-react';
 
-export default function InlineTextEditor() {
-  const editingText = useCanvasStore((state) => state.editingText);
+function InlineTextEditorInner({ editingText }) {
   const finishEditingText = useCanvasStore((state) => state.finishEditingText);
   const cancelEditingText = useCanvasStore((state) => state.cancelEditingText);
   const isDarkMode = useCanvasStore((state) => state.isDarkMode);
@@ -11,21 +10,21 @@ export default function InlineTextEditor() {
   const pan = useCanvasStore((state) => state.pan);
   const currentStyle = useCanvasStore((state) => state.currentStyle);
 
+  const [text, setText] = useState(editingText.text || '');
   const textAreaRef = useRef(null);
 
+  // Focus and select once on mount (only for this text editing session)
   useEffect(() => {
-    if (editingText && textAreaRef.current) {
-      const timer = setTimeout(() => {
-        if (textAreaRef.current) {
-          textAreaRef.current.focus();
+    const timer = setTimeout(() => {
+      if (textAreaRef.current) {
+        textAreaRef.current.focus();
+        if (editingText.text) {
           textAreaRef.current.select();
         }
-      }, 40);
-      return () => clearTimeout(timer);
-    }
-  }, [editingText]);
-
-  if (!editingText) return null;
+      }
+    }, 40);
+    return () => clearTimeout(timer);
+  }, [editingText.text]);
 
   const screenX = editingText.x * zoom + pan.x;
   const screenY = editingText.y * zoom + pan.y;
@@ -34,9 +33,18 @@ export default function InlineTextEditor() {
     // Stop propagation so global canvas hotkeys don't intercept editor keys
     e.stopPropagation();
 
-    if (e.key === 'Enter' && !e.shiftKey && editingText.type !== 'sticky') {
-      e.preventDefault();
-      finishEditingText();
+    if (e.key === 'Enter') {
+      if (editingText.type === 'sticky') {
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          finishEditingText(text);
+        }
+      } else {
+        if (!e.shiftKey) {
+          e.preventDefault();
+          finishEditingText(text);
+        }
+      }
     } else if (e.key === 'Escape') {
       e.preventDefault();
       cancelEditingText();
@@ -59,12 +67,8 @@ export default function InlineTextEditor() {
     >
       <textarea
         ref={textAreaRef}
-        value={editingText.text}
-        onChange={(e) => {
-          useCanvasStore.setState({
-            editingText: { ...editingText, text: e.target.value },
-          });
-        }}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={editingText.type === 'sticky' ? 'Write note here...' : 'Type text here...'}
         style={{
@@ -86,7 +90,9 @@ export default function InlineTextEditor() {
       {/* Quick Action buttons below text input */}
       <div className="flex items-center justify-between gap-3 px-2 py-1 bg-[#1e1e24]/95 text-neutral-300 rounded-lg border border-[#34343e] shadow-lg text-[11px]">
         <span className="text-neutral-400">
-          {editingText.type === 'sticky' ? 'Shift+Enter for newline' : 'Enter to save • Esc to cancel'}
+          {editingText.type === 'sticky'
+            ? 'Ctrl+Enter to save • Esc to cancel'
+            : 'Enter to save • Shift+Enter for newline • Esc to cancel'}
         </span>
         <div className="flex items-center gap-1">
           <button
@@ -97,7 +103,7 @@ export default function InlineTextEditor() {
             <X size={13} />
           </button>
           <button
-            onClick={() => finishEditingText()}
+            onClick={() => finishEditingText(text)}
             title="Done (Enter)"
             className="p-1 bg-[#6965db] text-white rounded hover:bg-[#5b57d1] flex items-center gap-1 font-semibold px-2"
           >
@@ -107,4 +113,10 @@ export default function InlineTextEditor() {
       </div>
     </div>
   );
+}
+
+export default function InlineTextEditor() {
+  const editingText = useCanvasStore((state) => state.editingText);
+  if (!editingText) return null;
+  return <InlineTextEditorInner key={editingText.id} editingText={editingText} />;
 }
