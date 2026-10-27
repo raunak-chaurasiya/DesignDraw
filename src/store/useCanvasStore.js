@@ -4,6 +4,7 @@ import { updateAllConnectedArrows } from '../utils/binding';
 import { validateScene } from '../utils/validation';
 import { getElementBounds } from '../utils/math';
 import { measureTextBounds } from '../utils/textMeasurement';
+import { createBranchNode } from '../utils/mindmap';
 import { useCollabStore } from './useCollabStore';
 
 function generateId(prefix = 'el') {
@@ -611,5 +612,158 @@ export const useCanvasStore = create((set, get) => ({
     get().pushHistory([]);
     set({ selectedElementIds: [] });
     get().showToast('Canvas cleared');
+  },
+
+  // Select all elements
+  selectAll: () => {
+    const { elements } = get();
+    set({ selectedElementIds: elements.map((el) => el.id) });
+  },
+
+  // Insert image element
+  insertImage: (dataUrl, clientX, clientY) => {
+    if (!dataUrl) return;
+    const { elements, pan, zoom, pushHistory, showToast } = get();
+
+    const img = new Image();
+    img.onload = () => {
+      const nw = img.naturalWidth || 400;
+      const nh = img.naturalHeight || 300;
+      const maxDim = 450;
+      let w = nw;
+      let h = nh;
+      if (w > maxDim || h > maxDim) {
+        const ratio = w / h;
+        if (ratio > 1) {
+          w = maxDim;
+          h = Math.round(maxDim / ratio);
+        } else {
+          h = maxDim;
+          w = Math.round(maxDim * ratio);
+        }
+      }
+
+      const screenX = clientX !== undefined ? clientX : (typeof window !== 'undefined' ? window.innerWidth / 2 : 500);
+      const screenY = clientY !== undefined ? clientY : (typeof window !== 'undefined' ? window.innerHeight / 2 : 400);
+
+      const canvasX = (screenX - pan.x) / zoom;
+      const canvasY = (screenY - pan.y) / zoom;
+
+      const newImageEl = {
+        id: generateId('img'),
+        type: 'image',
+        x: Math.round(canvasX - w / 2),
+        y: Math.round(canvasY - h / 2),
+        width: w,
+        height: h,
+        naturalWidth: nw,
+        naturalHeight: nh,
+        aspectRatio: nw / nh,
+        dataUrl,
+        strokeColor: 'transparent',
+        strokeWidth: 0,
+        opacity: 100,
+        version: 1,
+        updatedAt: Date.now(),
+      };
+
+      pushHistory([...elements, newImageEl]);
+      set({ selectedElementIds: [newImageEl.id] });
+      showToast('Image inserted');
+    };
+    img.src = dataUrl;
+  },
+
+  // Auto-branch mindmap node
+  autoBranch: (isSibling = false) => {
+    const { selectedElementIds, elements, pushHistory, showToast, setEditingText } = get();
+    if (selectedElementIds.length !== 1) {
+      showToast('Select a shape to branch from');
+      return;
+    }
+    const source = elements.find((el) => el.id === selectedElementIds[0]);
+    if (!source || ['line', 'arrow', 'pencil'].includes(source.type)) return;
+
+    const result = createBranchNode(source, 'right', elements, isSibling);
+    if (!result) return;
+
+    pushHistory(result.newElements);
+    set({ selectedElementIds: [result.newNode.id] });
+
+    setEditingText({
+      id: result.newNode.id,
+      type: result.newNode.type,
+      x: result.newNode.x,
+      y: result.newNode.y,
+      width: result.newNode.width,
+      height: result.newNode.height,
+      text: '',
+      isNew: true,
+      fontSize: result.newNode.fontSize,
+      fontFamily: result.newNode.fontFamily,
+      arrowId: result.newArrow.id,
+    });
+
+    showToast(isSibling ? 'Added sibling branch' : 'Added child branch');
+  },
+
+  // Table structure actions
+  addTableRow: () => {
+    const { selectedElementIds, elements, updateSelectedProperties } = get();
+    const selected = elements.find((el) => el.id === selectedElementIds[0]);
+    if (!selected || selected.type !== 'table') return;
+
+    const currentRows = selected.rows || 3;
+    const cols = selected.cols || 3;
+    const currentData = (selected.data || []).map((r) => [...r]);
+    currentData.push(Array(cols).fill(''));
+    const h = selected.height || 120;
+    const newH = Math.round(h * ((currentRows + 1) / currentRows));
+    updateSelectedProperties({ rows: currentRows + 1, data: currentData, height: newH });
+  },
+
+  removeTableRow: () => {
+    const { selectedElementIds, elements, updateSelectedProperties } = get();
+    const selected = elements.find((el) => el.id === selectedElementIds[0]);
+    if (!selected || selected.type !== 'table') return;
+
+    const currentRows = selected.rows || 3;
+    if (currentRows <= 1) return;
+    const currentData = (selected.data || []).slice(0, currentRows - 1);
+    const h = selected.height || 120;
+    const newH = Math.round(h * ((currentRows - 1) / currentRows));
+    updateSelectedProperties({ rows: currentRows - 1, data: currentData, height: newH });
+  },
+
+  addTableCol: () => {
+    const { selectedElementIds, elements, updateSelectedProperties } = get();
+    const selected = elements.find((el) => el.id === selectedElementIds[0]);
+    if (!selected || selected.type !== 'table') return;
+
+    const currentCols = selected.cols || 3;
+    const currentData = (selected.data || []).map((r) => [...r, '']);
+    const w = selected.width || 240;
+    const newW = Math.round(w * ((currentCols + 1) / currentCols));
+    updateSelectedProperties({ cols: currentCols + 1, data: currentData, width: newW });
+  },
+
+  removeTableCol: () => {
+    const { selectedElementIds, elements, updateSelectedProperties } = get();
+    const selected = elements.find((el) => el.id === selectedElementIds[0]);
+    if (!selected || selected.type !== 'table') return;
+
+    const currentCols = selected.cols || 3;
+    if (currentCols <= 1) return;
+    const currentData = (selected.data || []).map((r) => r.slice(0, currentCols - 1));
+    const w = selected.width || 240;
+    const newW = Math.round(w * ((currentCols - 1) / currentCols));
+    updateSelectedProperties({ cols: currentCols - 1, data: currentData, width: newW });
+  },
+
+  toggleTableHeader: () => {
+    const { selectedElementIds, elements, updateSelectedProperties } = get();
+    const selected = elements.find((el) => el.id === selectedElementIds[0]);
+    if (!selected || selected.type !== 'table') return;
+    updateSelectedProperties({ hasHeader: !selected.hasHeader });
   },
 }));
