@@ -74,7 +74,9 @@ function TableCellEditorInner({ editingCell }) {
         <button
           onClick={() => finishEditingCell(false)}
           title="Cancel"
-          className="p-0.5 hover:bg-neutral-500/20 rounded text-neutral-400 hover:text-white"
+          className={`p-0.5 rounded transition-colors ${
+            isDarkMode ? 'hover:bg-neutral-500/20 text-neutral-400 hover:text-white' : 'hover:bg-neutral-200 text-neutral-500 hover:text-neutral-900'
+          }`}
         >
           <X size={12} />
         </button>

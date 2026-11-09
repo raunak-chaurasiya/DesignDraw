@@ -1,5 +1,13 @@
 import { measureTextBounds } from './textMeasurement';
 
+// Unique ID generator with standard randomUUID and timestamp fallback
+export function generateId(prefix = 'el') {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return `${prefix}-${crypto.randomUUID()}`;
+  }
+  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+}
+
 // Point distance
 export function distance(p1, p2) {
   if (!p1 || !p2) return 0;

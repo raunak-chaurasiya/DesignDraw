@@ -131,16 +131,16 @@ export default function WhiteboardCanvas() {
         if (el.type === 'text' || el.type === 'sticky') {
           continue;
         }
-        renderElement(ctx, rc, { ...el, text: '' }, false, handleImageLoaded);
+        renderElement(ctx, rc, { ...el, text: '' }, false, handleImageLoaded, isDarkMode);
         continue;
       }
       const isSelected = selectedElementIds.includes(el.id);
-      renderElement(ctx, rc, el, isSelected, handleImageLoaded);
+      renderElement(ctx, rc, el, isSelected, handleImageLoaded, isDarkMode);
     }
 
     // 4. Render element currently being drawn
     if (currentElementRef.current) {
-      renderElement(ctx, rc, currentElementRef.current, false, handleImageLoaded);
+      renderElement(ctx, rc, currentElementRef.current, false, handleImageLoaded, isDarkMode);
     }
 
     // 5. Draw snap anchor highlights if drawing a connector

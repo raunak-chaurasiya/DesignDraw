@@ -1,36 +1,35 @@
-import { X, Keyboard } from 'lucide-react';
+import { X } from 'lucide-react';
 
 const SHORTCUTS = [
-  { key: 'V / 1', desc: 'Selection tool' },
-  { key: 'H', desc: 'Hand (pan) tool' },
-  { key: 'R / 2', desc: 'Rectangle tool' },
-  { key: 'D / 3', desc: 'Diamond tool' },
-  { key: 'O / 4', desc: 'Ellipse tool' },
-  { key: 'A / 5', desc: 'Arrow tool' },
-  { key: 'L / 6', desc: 'Line tool' },
-  { key: 'P / 7', desc: 'Draw / Pencil tool' },
-  { key: 'T / 8', desc: 'Text tool' },
-  { key: 'N / 9', desc: 'Sticky note tool' },
-  { key: 'B', desc: 'Table (Grid) tool' },
-  { key: 'M', desc: 'Mind Map Root tool' },
-  { key: 'Tab', desc: 'Auto-branch child node' },
-  { key: 'Enter', desc: 'Auto-branch sibling node' },
-  { key: 'I', desc: 'Insert Image tool' },
-  { key: 'Ctrl + V', desc: 'Paste image from clipboard' },
-  { key: 'E', desc: 'Eraser tool' },
-  { key: 'Space + Drag / Wheel', desc: 'Pan canvas' },
-  { key: 'Ctrl + Wheel', desc: 'Zoom at cursor' },
-  { key: 'Ctrl + + / -', desc: 'Zoom in / out' },
-  { key: 'Ctrl + 0', desc: 'Reset zoom to 100%' },
+  { key: 'V', desc: 'Select' },
+  { key: 'H', desc: 'Pan' },
+  { key: 'R', desc: 'Rectangle' },
+  { key: 'D', desc: 'Diamond' },
+  { key: 'O', desc: 'Ellipse' },
+  { key: 'A', desc: 'Arrow' },
+  { key: 'L', desc: 'Line' },
+  { key: 'P', desc: 'Pencil' },
+  { key: 'T', desc: 'Text' },
+  { key: 'N', desc: 'Sticky note' },
+  { key: 'B', desc: 'Table' },
+  { key: 'M', desc: 'Mind map' },
+  { key: 'Tab', desc: 'Add child branch' },
+  { key: 'Enter', desc: 'Add sibling branch' },
+  { key: 'I', desc: 'Insert image' },
+  { key: 'Ctrl + V', desc: 'Paste image' },
+  { key: 'E', desc: 'Eraser' },
+  { key: 'Space + Drag', desc: 'Pan canvas' },
+  { key: 'Ctrl + Wheel', desc: 'Zoom' },
+  { key: 'Ctrl + 0', desc: 'Reset zoom' },
   { key: 'Ctrl + Z', desc: 'Undo' },
   { key: 'Ctrl + Y', desc: 'Redo' },
-  { key: 'Ctrl + A', desc: 'Select all elements' },
-  { key: 'Ctrl + G', desc: 'Group selected shapes' },
-  { key: 'Ctrl + Shift + G', desc: 'Ungroup shapes' },
-  { key: 'Shift + Click', desc: 'Toggle multi-select' },
-  { key: 'Ctrl + D', desc: 'Duplicate selected' },
-  { key: 'Delete / Backspace', desc: 'Delete selected' },
-  { key: 'Esc', desc: 'Deselect / Cancel tool' },
+  { key: 'Ctrl + A', desc: 'Select all' },
+  { key: 'Ctrl + G', desc: 'Group' },
+  { key: 'Ctrl + Shift + G', desc: 'Ungroup' },
+  { key: 'Shift + Click', desc: 'Multi-select' },
+  { key: 'Ctrl + D', desc: 'Duplicate' },
+  { key: 'Delete', desc: 'Delete' },
+  { key: 'Esc', desc: 'Deselect tool' },
 ];
 
 export default function HelpModal({ isOpen, onClose, isDarkMode = true }) {
@@ -39,48 +38,61 @@ export default function HelpModal({ isOpen, onClose, isDarkMode = true }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
       <div
-        className={`w-full max-w-md max-h-[92vh] flex flex-col rounded-2xl border p-4 sm:p-6 shadow-2xl transition-all ${
+        className={`w-full max-w-md max-h-[92vh] flex flex-col rounded-2xl border p-5 shadow-xl transition-colors ${
           isDarkMode
-            ? 'bg-[#1e1e24] border-[#34343e] text-neutral-100'
-            : 'bg-white border-neutral-200 text-neutral-900 shadow-neutral-300/50'
+            ? 'bg-[#18181c] border-white/10 text-neutral-100 shadow-black/60'
+            : 'bg-white border-neutral-200 text-neutral-900 shadow-neutral-300/40'
         }`}
       >
-        <div className="flex items-center justify-between pb-3 sm:pb-4 border-b border-white/10 mb-3 sm:mb-4">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-[#6965db]/20 text-[#827fe2]">
-              <Keyboard size={20} />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold">Keyboard Shortcuts</h2>
-              <p className="text-xs text-neutral-400">Work faster with whiteboard hotkeys</p>
-            </div>
+        <div className={`flex items-center justify-between pb-3 border-b mb-3 ${
+          isDarkMode ? 'border-white/10' : 'border-neutral-200'
+        }`}>
+          <div>
+            <h2 className="text-base font-medium">Shortcuts</h2>
+            <p className="text-xs text-neutral-400 mt-0.5">Quick hotkeys for tools and canvas actions</p>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
+            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+              isDarkMode ? 'text-neutral-400 hover:text-white hover:bg-white/10' : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100'
+            }`}
           >
-            <X size={18} />
+            <X size={18} strokeWidth={1.5} />
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs max-h-[58vh] sm:max-h-[380px] overflow-y-auto pr-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs max-h-[58vh] sm:max-h-[380px] overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
           {SHORTCUTS.map((sc, i) => (
             <div
               key={i}
-              className="flex items-center justify-between p-2 rounded-lg bg-black/20"
+              className={`flex items-center justify-between px-2.5 py-2 rounded-lg border ${
+                isDarkMode ? 'bg-white/[0.02] border-white/5 text-neutral-300' : 'bg-neutral-50 border-neutral-200 text-neutral-700'
+              }`}
             >
-              <span className="text-neutral-300">{sc.desc}</span>
-              <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono text-[11px] font-semibold text-[#827fe2]">
+              <span>{sc.desc}</span>
+              <kbd
+                className={`px-1.5 py-0.5 rounded font-mono text-[10px] border ${
+                  isDarkMode
+                    ? 'bg-white/10 border-white/10 text-neutral-300'
+                    : 'bg-white border-neutral-300 text-neutral-800'
+                }`}
+              >
                 {sc.key}
               </kbd>
             </div>
           ))}
         </div>
 
-        <div className="mt-4 pt-3 border-t border-white/10 flex justify-end">
+        <div className={`mt-4 pt-3 border-t flex justify-end ${
+          isDarkMode ? 'border-white/10' : 'border-neutral-200'
+        }`}>
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold rounded-xl bg-[#6965db] text-white hover:bg-[#5b57d1] transition-colors"
+            className={`px-3.5 py-1.5 text-xs font-normal rounded-lg transition-colors cursor-pointer ${
+              isDarkMode
+                ? 'bg-white/10 hover:bg-white/15 text-neutral-200'
+                : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-800'
+            }`}
           >
             Close
           </button>

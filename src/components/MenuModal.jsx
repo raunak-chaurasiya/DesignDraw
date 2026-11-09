@@ -11,8 +11,11 @@ import {
   HelpCircle,
   X,
   ExternalLink,
+  Cloud,
 } from 'lucide-react';
 import { importFromJson } from '../utils/export';
+import { useCanvasStore } from '../store/useCanvasStore';
+import { useAuth } from '../context/AuthContext';
 
 function GithubIcon({ size = 16, className = '' }) {
   return (
@@ -47,6 +50,14 @@ export default function MenuModal({
 }) {
   const fileInputRef = useRef(null);
 
+  // Cloud Store selectors
+  const cloudBoards = useCanvasStore((state) => state.cloudBoards);
+  const setIsBoardsListOpen = useCanvasStore((state) => state.setIsBoardsListOpen);
+  const saveCurrentBoardToCloud = useCanvasStore((state) => state.saveCurrentBoardToCloud);
+  const showToast = useCanvasStore((state) => state.showToast);
+
+  const { isSignedIn, openSignIn } = useAuth();
+
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -60,69 +71,120 @@ export default function MenuModal({
     }
   };
 
+
   return (
     <>
       {/* Top Left Menu Trigger Button */}
-      <div className="fixed top-4 left-4 z-40">
+      <div className="fixed top-3 sm:top-4 left-3 sm:left-4 z-40">
         <button
           onClick={() => setIsOpen(!isOpen)}
           title="Open menu"
-          className={`p-2.5 rounded-xl border shadow-lg backdrop-blur-md transition-all flex items-center justify-center ${isDarkMode
-            ? 'bg-[#232329]/90 border-[#34343e] text-neutral-300 hover:text-white hover:bg-[#2d2d38]'
-            : 'bg-white/95 border-neutral-200 text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 shadow-neutral-300/40'
-            }`}
+          className={`p-2 rounded-xl border shadow-lg backdrop-blur-md transition-colors flex items-center justify-center cursor-pointer ${
+            isDarkMode
+              ? 'bg-[#18181c]/95 border-white/10 text-neutral-300 hover:text-white hover:bg-white/5'
+              : 'bg-white/95 border-neutral-200 text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 shadow-neutral-200/50'
+          }`}
         >
-          {isOpen ? <X size={19} /> : <Menu size={19} />}
+          {isOpen ? <X size={18} strokeWidth={1.5} /> : <Menu size={18} strokeWidth={1.5} />}
         </button>
       </div>
 
-      {/* Menu Drawer / Dropdown */}
+      {/* Menu Drawer */}
       {isOpen && (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]"
+            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
             onClick={() => setIsOpen(false)}
           />
           <div
-            className={`fixed top-16 left-4 z-50 w-72 rounded-2xl border p-3 shadow-2xl backdrop-blur-md transition-all animate-in fade-in slide-in-from-top-2 duration-150 ${isDarkMode
-              ? 'bg-[#1e1e24] border-[#34343e] text-neutral-200'
-              : 'bg-white border-neutral-200 text-neutral-800 shadow-neutral-300/50'
-              }`}
+            className={`fixed top-14 sm:top-16 left-3 sm:left-4 z-50 w-72 rounded-2xl border p-3 shadow-xl backdrop-blur-md transition-colors ${
+              isDarkMode
+                ? 'bg-[#18181c] border-white/10 text-neutral-200 shadow-black/60'
+                : 'bg-white border-neutral-200 text-neutral-800 shadow-neutral-300/40'
+            }`}
           >
-            <div className="px-3 py-2 border-b border-white/10 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
-                Whiteboard Menu
+            {/* Header */}
+            <div className={`flex items-center justify-between px-2 py-1 border-b mb-2.5 ${
+              isDarkMode ? 'border-white/10' : 'border-neutral-200'
+            }`}>
+              <span className="text-xs font-normal text-neutral-400">
+                Menu
               </span>
             </div>
 
-            <div className="space-y-1 text-xs">
-              {/* Export as JPG / Image */}
+            <div className="space-y-0.5 text-xs">
+              {/* Save to Cloud */}
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  if (!isSignedIn) {
+                    showToast('Please sign in to save boards to the cloud');
+                    openSignIn();
+                    return;
+                  }
+                  saveCurrentBoardToCloud();
+                }}
+                className={`w-full flex items-center justify-between p-2 rounded-lg transition-colors cursor-pointer ${
+                  isDarkMode ? 'hover:bg-white/5 text-neutral-200' : 'hover:bg-neutral-100 text-neutral-800'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Cloud size={15} strokeWidth={1.5} className="text-neutral-400" />
+                  <span>Save to cloud</span>
+                </div>
+                {!isSignedIn && (
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
+                    isDarkMode ? 'bg-white/10 text-neutral-400' : 'bg-neutral-100 text-neutral-500'
+                  }`}>
+                    Sign in
+                  </span>
+                )}
+              </button>
+
+              {/* View Cloud Boards */}
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  setIsBoardsListOpen(true);
+                }}
+                className={`w-full flex items-center justify-between p-2 rounded-lg transition-colors cursor-pointer ${
+                  isDarkMode ? 'hover:bg-white/5 text-neutral-200' : 'hover:bg-neutral-100 text-neutral-800'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <FolderOpen size={15} strokeWidth={1.5} className="text-neutral-400" />
+                  <span>Saved boards</span>
+                </div>
+                <span className="text-[10px] font-mono text-neutral-500">
+                  {cloudBoards.length}
+                </span>
+              </button>
+
+              <div className={`my-1 border-t ${isDarkMode ? 'border-white/10' : 'border-neutral-200'}`} />
+
+              {/* Export */}
               <button
                 onClick={() => {
                   setIsOpen(false);
                   onOpenExport();
                 }}
-                className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-[#6965db]/20 text-[#827fe2] hover:text-[#9794f0] font-semibold transition-colors group"
+                className={`w-full flex items-center gap-2 p-2 rounded-lg transition-colors cursor-pointer ${
+                  isDarkMode ? 'hover:bg-white/5 text-neutral-200' : 'hover:bg-neutral-100 text-neutral-800'
+                }`}
               >
-                <div className="flex items-center gap-2.5">
-                  <Download size={16} />
-                  <span>Export Image (JPG, PNG)</span>
-                </div>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#6965db] text-white">
-                  JPG
-                </span>
+                <Download size={15} strokeWidth={1.5} className="text-neutral-400" />
+                <span>Export image (PNG, SVG, JPG)</span>
               </button>
 
-              <div className="my-1.5 border-t border-white/10" />
-
-              {/* Open Project */}
+              {/* Open File */}
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className={`w-full flex items-center gap-2.5 p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-white/10 text-neutral-300' : 'hover:bg-neutral-100 text-neutral-700'
-                  }`}
+                className={`w-full flex items-center gap-2 p-2 rounded-lg transition-colors cursor-pointer ${
+                  isDarkMode ? 'hover:bg-white/5 text-neutral-200' : 'hover:bg-neutral-100 text-neutral-800'
+                }`}
               >
-                <FolderOpen size={16} />
-                <span>Open Project (.json)</span>
+                <FolderOpen size={15} strokeWidth={1.5} className="text-neutral-400" />
+                <span>Open local file (.json)</span>
               </button>
               <input
                 ref={fileInputRef}
@@ -132,93 +194,95 @@ export default function MenuModal({
                 className="hidden"
               />
 
-              {/* Save Project */}
+              {/* Save File */}
               <button
                 onClick={() => {
                   onSaveProject();
                   setIsOpen(false);
                 }}
-                className={`w-full flex items-center gap-2.5 p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-white/10 text-neutral-300' : 'hover:bg-neutral-100 text-neutral-700'
-                  }`}
+                className={`w-full flex items-center gap-2 p-2 rounded-lg transition-colors cursor-pointer ${
+                  isDarkMode ? 'hover:bg-white/5 text-neutral-200' : 'hover:bg-neutral-100 text-neutral-800'
+                }`}
               >
-                <Save size={16} />
-                <span>Save Project (.json)</span>
+                <Save size={15} strokeWidth={1.5} className="text-neutral-400" />
+                <span>Save local file (.json)</span>
               </button>
 
-              <div className="my-1.5 border-t border-white/10" />
+              <div className={`my-1 border-t ${isDarkMode ? 'border-white/10' : 'border-neutral-200'}`} />
 
-              {/* Canvas Theme Toggle */}
+              {/* Theme Toggle */}
               <button
                 onClick={() => setIsDarkMode(!isDarkMode)}
-                className={`w-full flex items-center justify-between p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-white/10 text-neutral-300' : 'hover:bg-neutral-100 text-neutral-700'
-                  }`}
+                className={`w-full flex items-center justify-between p-2 rounded-lg transition-colors cursor-pointer ${
+                  isDarkMode ? 'hover:bg-white/5 text-neutral-200' : 'hover:bg-neutral-100 text-neutral-800'
+                }`}
               >
-                <div className="flex items-center gap-2.5">
-                  {isDarkMode ? <Moon size={16} /> : <Sun size={16} />}
+                <div className="flex items-center gap-2">
+                  {isDarkMode ? <Moon size={15} strokeWidth={1.5} className="text-neutral-400" /> : <Sun size={15} strokeWidth={1.5} className="text-neutral-400" />}
                   <span>Theme</span>
                 </div>
                 <span className="text-neutral-400 capitalize">{isDarkMode ? 'Dark' : 'Light'}</span>
               </button>
 
-              {/* Canvas Grid Toggle */}
+              {/* Dot Grid */}
               <button
                 onClick={() => setShowGrid(!showGrid)}
-                className={`w-full flex items-center justify-between p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-white/10 text-neutral-300' : 'hover:bg-neutral-100 text-neutral-700'
-                  }`}
+                className={`w-full flex items-center justify-between p-2 rounded-lg transition-colors cursor-pointer ${
+                  isDarkMode ? 'hover:bg-white/5 text-neutral-200' : 'hover:bg-neutral-100 text-neutral-800'
+                }`}
               >
-                <div className="flex items-center gap-2.5">
-                  <Grid size={16} />
-                  <span>Dot Grid</span>
+                <div className="flex items-center gap-2">
+                  <Grid size={15} strokeWidth={1.5} className="text-neutral-400" />
+                  <span>Dot grid</span>
                 </div>
                 <span className="text-neutral-400">{showGrid ? 'On' : 'Off'}</span>
               </button>
 
-              {/* Help & Shortcuts */}
+              {/* Shortcuts */}
               <button
                 onClick={() => {
                   setIsOpen(false);
                   onOpenHelp();
                 }}
-                className={`w-full flex items-center gap-2.5 p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-white/10 text-neutral-300' : 'hover:bg-neutral-100 text-neutral-700'
-                  }`}
+                className={`w-full flex items-center gap-2 p-2 rounded-lg transition-colors cursor-pointer ${
+                  isDarkMode ? 'hover:bg-white/5 text-neutral-200' : 'hover:bg-neutral-100 text-neutral-800'
+                }`}
               >
-                <HelpCircle size={16} />
-                <span>Keyboard Shortcuts & Help</span>
+                <HelpCircle size={15} strokeWidth={1.5} className="text-neutral-400" />
+                <span>Shortcuts</span>
               </button>
 
-              <div className="my-1.5 border-t border-white/10" />
+              <div className={`my-1 border-t ${isDarkMode ? 'border-white/10' : 'border-neutral-200'}`} />
 
-              {/* GitHub Repository Link */}
+              {/* GitHub Link */}
               <a
                 href="https://github.com/raunak-chaurasiya/DesignDraw"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setIsOpen(false)}
                 className={`w-full flex items-center justify-between p-2 rounded-lg transition-colors ${
-                  isDarkMode
-                    ? 'hover:bg-white/10 text-neutral-300 hover:text-white'
-                    : 'hover:bg-neutral-100 text-neutral-700 hover:text-neutral-900'
+                  isDarkMode ? 'hover:bg-white/5 text-neutral-300' : 'hover:bg-neutral-100 text-neutral-700'
                 }`}
               >
-                <div className="flex items-center gap-2.5">
-                  <GithubIcon size={16} />
-                  <span>GitHub Repository</span>
+                <div className="flex items-center gap-2">
+                  <GithubIcon size={15} className="text-neutral-400" />
+                  <span>GitHub</span>
                 </div>
-                <ExternalLink size={13} className="opacity-50" />
+                <ExternalLink size={12} className="opacity-40" />
               </a>
 
               {/* Clear Canvas */}
               <button
                 onClick={() => {
                   setIsOpen(false);
-                  if (confirm('Are you sure you want to clear the entire whiteboard?')) {
+                  if (confirm('Clear the entire whiteboard canvas?')) {
                     onClearCanvas();
                   }
                 }}
-                className="w-full flex items-center gap-2.5 p-2 rounded-lg hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors"
+                className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-rose-500/10 text-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
               >
-                <Trash2 size={16} />
-                <span>Clear Canvas</span>
+                <Trash2 size={15} strokeWidth={1.5} />
+                <span>Clear canvas</span>
               </button>
             </div>
           </div>

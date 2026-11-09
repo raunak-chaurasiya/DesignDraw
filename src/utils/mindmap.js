@@ -1,12 +1,5 @@
-import { getElementBounds } from './math';
+import { getElementBounds, generateId } from './math';
 import { getAnchorPosition } from './binding';
-
-function generateUniqueId(prefix) {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return `${prefix}-${crypto.randomUUID()}`;
-  }
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-}
 
 /**
  * Find the parent element connected to this node via an incoming arrow
@@ -176,8 +169,8 @@ export function createBranchNode(sourceNode, direction = 'right', elements = [],
   const colorIndex = existingSiblings.length % MINDMAP_PALETTES.length;
   const palette = MINDMAP_PALETTES[colorIndex];
 
-  const newNodeId = generateUniqueId('node');
-  const arrowId = generateUniqueId('arrow');
+  const newNodeId = generateId('node');
+  const arrowId = generateId('arrow');
 
   const nodeType = sourceNode.type === 'sticky' ? 'sticky' : 'rectangle';
 

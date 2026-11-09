@@ -6,12 +6,14 @@ import MenuModal from './components/MenuModal';
 import ExportModal from './components/ExportModal';
 import HelpModal from './components/HelpModal';
 import IntroCard from './components/IntroCard';
-import QrShareModal from './components/qr-share-modal';
+import QrShareModal from './components/QrShareModal';
 import WhiteboardCanvas from './components/canvas/WhiteboardCanvas';
 import InlineTextEditor from './components/canvas/InlineTextEditor';
 import TableCellEditor from './components/canvas/TableCellEditor';
 import CollaboratorCursors from './components/canvas/CollaboratorCursors';
 import Toast from './components/Toast';
+import AuthNav from './components/AuthNav';
+import CloudBoardsModal from './components/CloudBoardsModal';
 
 import CanvasShortcutsHandler from './components/handlers/CanvasShortcutsHandler';
 import ToolShortcutsHandler from './components/handlers/ToolShortcutsHandler';
@@ -97,6 +99,19 @@ export default function App() {
     }
   }, [startCollaboration, showToast]);
 
+  // Sync document root theme class and background with current mode
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      document.body.style.backgroundColor = '#121212';
+      document.body.style.color = '#f0f0f0';
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.body.style.backgroundColor = '#f8f9fa';
+      document.body.style.color = '#212529';
+    }
+  }, [isDarkMode]);
+
   // Insert image file from browser file input
   const handleImageFileSelect = (e) => {
     const file = e.target.files?.[0];
@@ -150,6 +165,9 @@ export default function App() {
         connectedPeerCount={connectedPeerCount}
         isCollabActive={isCollabActive}
       />
+
+      {/* Top-Right Authentication & Pro Upgrade Badge */}
+      <AuthNav />
 
       {/* Interactive HTML5 Whiteboard Canvas */}
       <WhiteboardCanvas />
@@ -253,6 +271,9 @@ export default function App() {
         onDisconnect={() => stopCollaboration(showToast)}
         isDarkMode={isDarkMode}
       />
+
+      {/* Cloud-Saved Whiteboards Management Modal */}
+      <CloudBoardsModal />
 
       {/* Floating Animated Toast Notifications */}
       <Toast />

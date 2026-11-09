@@ -3,11 +3,13 @@ import {
   Trash2,
   ArrowUpToLine,
   ArrowDownToLine,
-  Sliders,
   Type as TypeIcon,
   X,
   Group,
   Ungroup,
+  Plus,
+  Minus,
+  RotateCcw,
 } from 'lucide-react';
 import {
   STROKE_COLORS,
@@ -66,131 +68,193 @@ export default function PropertiesPanel({
     return null;
   }
 
+  // Selected element title
+  const selectionTitle = isGrouped
+    ? `Group (${selectedElements.length})`
+    : isMulti
+    ? `Selection (${selectedElements.length})`
+    : selectedElement
+    ? `${selectedElement.type.charAt(0).toUpperCase() + selectedElement.type.slice(1)}`
+    : 'Style Defaults';
+
   return (
-    <div
-      className={`fixed top-16 left-3 sm:left-4 z-30 w-[calc(100vw-1.5rem)] sm:w-64 max-w-xs sm:max-w-none max-h-[calc(100vh-5.5rem)] overflow-y-auto rounded-2xl border p-3.5 sm:p-4 shadow-2xl backdrop-blur-md transition-all ${
+    <aside
+      aria-label="Element Properties"
+      className={`fixed top-16 left-3 sm:left-4 z-30 w-[calc(100vw-1.5rem)] sm:w-68 max-w-xs sm:max-w-none max-h-[calc(100vh-5.5rem)] overflow-y-auto rounded-2xl border p-3.5 sm:p-4 shadow-xl backdrop-blur-md transition-colors ${
         isDarkMode
-          ? 'bg-[#232329]/95 border-[#34343e] text-neutral-200'
-          : 'bg-white/95 border-neutral-200 text-neutral-800 shadow-neutral-300/40'
+          ? 'bg-[#18181c]/95 border-white/10 text-neutral-200 shadow-black/40'
+          : 'bg-white/95 border-neutral-200/80 text-neutral-800 shadow-xl shadow-black/5'
       }`}
       style={{ scrollbarWidth: 'thin' }}
     >
-      <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
-        <span className="text-xs font-semibold tracking-wider uppercase text-neutral-400 flex items-center gap-1.5 truncate pr-1">
-          <Sliders size={14} className="text-[#827fe2] shrink-0" />
-          {isGrouped
-            ? `GROUP (${selectedElements.length})`
-            : isMulti
-            ? `MULTI (${selectedElements.length} ITEMS)`
-            : selectedElement
-            ? `${selectedElement.type.toUpperCase()} STYLES`
-            : 'DEFAULT STYLES'}
-        </span>
-        <div className="flex items-center gap-1 shrink-0">
+      {/* Header */}
+      <div className={`flex items-center justify-between pb-3 border-b mb-3 ${
+        isDarkMode ? 'border-white/10' : 'border-neutral-200/80'
+      }`}>
+        <div className="flex items-center gap-1.5 min-w-0 pr-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#6965db] shrink-0" />
+          <span className="text-xs font-medium tracking-tight truncate">
+            {selectionTitle}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-0.5 shrink-0">
           {selectedElements.length > 0 && (
             <>
               <button
                 onClick={onDuplicate}
                 title="Duplicate (Ctrl+D)"
-                className={`p-1.5 rounded-lg transition-colors ${
-                  isDarkMode ? 'hover:bg-[#2f2f3a] text-neutral-300' : 'hover:bg-neutral-100 text-neutral-600'
+                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                  isDarkMode ? 'hover:bg-white/10 text-neutral-400 hover:text-white' : 'hover:bg-neutral-100 text-neutral-500 hover:text-neutral-900'
                 }`}
               >
-                <Copy size={14} />
+                <Copy size={13} strokeWidth={1.5} />
               </button>
               <button
                 onClick={onDelete}
                 title="Delete (Del)"
-                className="p-1.5 rounded-lg transition-colors hover:bg-red-500/20 text-red-400 hover:text-red-300"
+                className="p-1.5 rounded-lg transition-colors hover:bg-rose-500/15 text-rose-400 hover:text-rose-300 cursor-pointer"
               >
-                <Trash2 size={14} />
+                <Trash2 size={13} strokeWidth={1.5} />
               </button>
             </>
           )}
           <button
             onClick={() => setIsOpen(false)}
             title="Close styles"
-            className="p-1.5 rounded-lg hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
+            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+              isDarkMode ? 'hover:bg-white/10 text-neutral-400 hover:text-white' : 'hover:bg-neutral-100 text-neutral-500 hover:text-neutral-900'
+            }`}
           >
-            <X size={15} />
+            <X size={14} strokeWidth={1.5} />
           </button>
         </div>
       </div>
 
-      {/* Grouping & Alignment Section (Shows when multiple items or a group is selected) */}
+      {/* Multi-Selection: Grouping & Alignment */}
       {(isMulti || isGrouped) && (
-        <div className="pb-3 border-b border-white/10 mb-3 space-y-2.5">
-          {/* Group / Ungroup Action Button */}
+        <div className={`pb-3 border-b mb-3 space-y-2.5 ${
+          isDarkMode ? 'border-white/10' : 'border-neutral-200/80'
+        }`}>
+          {/* Group / Ungroup Button */}
           <div className="flex items-center gap-1.5">
             {isGrouped ? (
               <button
                 onClick={onUngroup}
-                title="Ungroup selected elements (Ctrl+Shift+G)"
-                className="flex-1 py-1.5 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors border border-amber-500/25 shadow-sm"
+                title="Ungroup elements (Ctrl+Shift+G)"
+                className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-normal flex items-center justify-center gap-1.5 transition-colors border cursor-pointer ${
+                  isDarkMode
+                    ? 'bg-white/8 hover:bg-white/12 text-neutral-200 border-white/10'
+                    : 'bg-neutral-100 hover:bg-neutral-200/80 text-neutral-800 border-neutral-200/80'
+                }`}
               >
-                <Ungroup size={14} />
-                <span>Ungroup (Ctrl+Shift+G)</span>
+                <Ungroup size={13} strokeWidth={1.5} />
+                <span>Ungroup</span>
               </button>
             ) : (
               <button
                 onClick={onGroup}
-                title="Group selected elements together (Ctrl+G)"
-                className="flex-1 py-1.5 px-3 rounded-xl bg-[#6965db]/20 hover:bg-[#6965db]/30 text-[#827fe2] font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors border border-[#6965db]/30 shadow-sm"
+                title="Group elements together (Ctrl+G)"
+                className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-normal flex items-center justify-center gap-1.5 transition-colors border cursor-pointer ${
+                  isDarkMode
+                    ? 'bg-white/8 hover:bg-white/12 text-neutral-200 border-white/10'
+                    : 'bg-neutral-100 hover:bg-neutral-200/80 text-neutral-800 border-neutral-200/80'
+                }`}
               >
-                <Group size={14} />
-                <span>Group (Ctrl+G)</span>
+                <Group size={13} strokeWidth={1.5} />
+                <span>Group</span>
               </button>
             )}
           </div>
 
-          {/* Quick Alignment Toolbar */}
+          {/* Precision Alignment Toolbar */}
           {onAlign && (
             <div>
-              <div className="flex justify-between items-center mb-1">
-                <span className="font-medium text-neutral-400 text-[11px]">Align Items</span>
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-[11px] font-normal text-neutral-400">Align</span>
               </div>
-              <div className="grid grid-cols-6 gap-1 p-1 bg-black/25 rounded-lg text-center">
+              <div className={`grid grid-cols-6 gap-0.5 p-1 rounded-xl border ${
+                isDarkMode
+                  ? 'bg-neutral-900/60 border-white/5'
+                  : 'bg-neutral-100/90 border-neutral-200/70'
+              }`}>
+                {/* Left */}
                 <button
                   onClick={() => onAlign('left')}
-                  title="Align Left"
-                  className="py-1 rounded hover:bg-white/10 text-neutral-300 hover:text-white transition-colors text-xs font-mono font-bold"
+                  title="Align left"
+                  className={`py-1.5 flex items-center justify-center rounded-lg transition-colors cursor-pointer ${
+                    isDarkMode ? 'hover:bg-white/10 text-neutral-300 hover:text-white' : 'hover:bg-white text-neutral-600 hover:text-neutral-900 hover:shadow-xs'
+                  }`}
                 >
-                  ⇤
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="2" y1="2" x2="2" y2="14" />
+                    <rect x="5" y="4" width="8" height="8" rx="1" />
+                  </svg>
                 </button>
+                {/* Center H */}
                 <button
                   onClick={() => onAlign('center-h')}
-                  title="Align Center (Horizontal)"
-                  className="py-1 rounded hover:bg-white/10 text-neutral-300 hover:text-white transition-colors text-xs font-mono font-bold"
+                  title="Align center (horizontal)"
+                  className={`py-1.5 flex items-center justify-center rounded-lg transition-colors cursor-pointer ${
+                    isDarkMode ? 'hover:bg-white/10 text-neutral-300 hover:text-white' : 'hover:bg-white text-neutral-600 hover:text-neutral-900 hover:shadow-xs'
+                  }`}
                 >
-                  ⇥⇤
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="8" y1="2" x2="8" y2="14" />
+                    <rect x="4" y="4" width="8" height="8" rx="1" />
+                  </svg>
                 </button>
+                {/* Right */}
                 <button
                   onClick={() => onAlign('right')}
-                  title="Align Right"
-                  className="py-1 rounded hover:bg-white/10 text-neutral-300 hover:text-white transition-colors text-xs font-mono font-bold"
+                  title="Align right"
+                  className={`py-1.5 flex items-center justify-center rounded-lg transition-colors cursor-pointer ${
+                    isDarkMode ? 'hover:bg-white/10 text-neutral-300 hover:text-white' : 'hover:bg-white text-neutral-600 hover:text-neutral-900 hover:shadow-xs'
+                  }`}
                 >
-                  ⇥
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="14" y1="2" x2="14" y2="14" />
+                    <rect x="3" y="4" width="8" height="8" rx="1" />
+                  </svg>
                 </button>
+                {/* Top */}
                 <button
                   onClick={() => onAlign('top')}
-                  title="Align Top"
-                  className="py-1 rounded hover:bg-white/10 text-neutral-300 hover:text-white transition-colors text-xs font-mono font-bold"
+                  title="Align top"
+                  className={`py-1.5 flex items-center justify-center rounded-lg transition-colors cursor-pointer ${
+                    isDarkMode ? 'hover:bg-white/10 text-neutral-300 hover:text-white' : 'hover:bg-white text-neutral-600 hover:text-neutral-900 hover:shadow-xs'
+                  }`}
                 >
-                  ⤒
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="2" y1="2" x2="14" y2="2" />
+                    <rect x="4" y="5" width="8" height="8" rx="1" />
+                  </svg>
                 </button>
+                {/* Center V */}
                 <button
                   onClick={() => onAlign('center-v')}
-                  title="Align Middle (Vertical)"
-                  className="py-1 rounded hover:bg-white/10 text-neutral-300 hover:text-white transition-colors text-xs font-mono font-bold"
+                  title="Align middle (vertical)"
+                  className={`py-1.5 flex items-center justify-center rounded-lg transition-colors cursor-pointer ${
+                    isDarkMode ? 'hover:bg-white/10 text-neutral-300 hover:text-white' : 'hover:bg-white text-neutral-600 hover:text-neutral-900 hover:shadow-xs'
+                  }`}
                 >
-                  ⤓⤒
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="2" y1="8" x2="14" y2="8" />
+                    <rect x="4" y="4" width="8" height="8" rx="1" />
+                  </svg>
                 </button>
+                {/* Bottom */}
                 <button
                   onClick={() => onAlign('bottom')}
-                  title="Align Bottom"
-                  className="py-1 rounded hover:bg-white/10 text-neutral-300 hover:text-white transition-colors text-xs font-mono font-bold"
+                  title="Align bottom"
+                  className={`py-1.5 flex items-center justify-center rounded-lg transition-colors cursor-pointer ${
+                    isDarkMode ? 'hover:bg-white/10 text-neutral-300 hover:text-white' : 'hover:bg-white text-neutral-600 hover:text-neutral-900 hover:shadow-xs'
+                  }`}
                 >
-                  ⤓
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="2" y1="14" x2="14" y2="14" />
+                    <rect x="4" y="3" width="8" height="8" rx="1" />
+                  </svg>
                 </button>
               </div>
             </div>
@@ -198,191 +262,234 @@ export default function PropertiesPanel({
         </div>
       )}
 
-      {/* Table Grid Controls (Shows when a Table element is selected) */}
+      {/* Table Element Controls */}
       {isTable && (
-        <div className="pb-3 border-b border-white/10 mb-3 space-y-2.5">
+        <div className={`pb-3 border-b mb-3 space-y-2.5 ${
+          isDarkMode ? 'border-white/10' : 'border-neutral-200/80'
+        }`}>
           <div className="flex items-center justify-between">
-            <span className="font-semibold text-neutral-300 text-xs">Table Grid</span>
-            <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#6965db]/20 text-[#9794f0] font-mono font-semibold">
+            <span className="text-xs font-normal text-neutral-400">Table dimensions</span>
+            <span className={`text-[11px] px-2 py-0.5 rounded-md font-mono ${
+              isDarkMode ? 'bg-white/10 text-neutral-300' : 'bg-neutral-100 text-neutral-700'
+            }`}>
               {selectedElement.rows || 3}R × {selectedElement.cols || 3}C
             </span>
           </div>
 
-          {/* Row controls */}
-          <div className="flex items-center justify-between text-xs p-2 bg-black/20 rounded-xl border border-white/5">
-            <span className="text-neutral-300 font-medium">Rows ({selectedElement.rows || 3})</span>
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => onRemoveTableRow && onRemoveTableRow(selectedElement.id)}
-                disabled={(selectedElement.rows || 3) <= 1}
-                title="Remove last row"
-                className="w-7 h-6 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-white/10 text-white font-bold transition-colors"
-              >
-                -
-              </button>
-              <button
-                onClick={() => onAddTableRow && onAddTableRow(selectedElement.id)}
-                title="Add row at bottom"
-                className="w-7 h-6 flex items-center justify-center rounded-lg bg-[#6965db] hover:bg-[#5b57d1] text-white font-bold transition-colors shadow-sm"
-              >
-                +
-              </button>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            {/* Rows Stepper */}
+            <div className={`flex items-center justify-between p-2 rounded-xl border ${
+              isDarkMode ? 'bg-neutral-900/60 border-white/5' : 'bg-neutral-50 border-neutral-200/70'
+            }`}>
+              <span className="text-neutral-400">Rows</span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => onRemoveTableRow && onRemoveTableRow(selectedElement.id)}
+                  disabled={(selectedElement.rows || 3) <= 1}
+                  title="Remove row"
+                  className={`w-6 h-6 flex items-center justify-center rounded-lg disabled:opacity-30 transition-colors cursor-pointer ${
+                    isDarkMode ? 'hover:bg-white/10 text-neutral-300' : 'hover:bg-neutral-200 text-neutral-700'
+                  }`}
+                >
+                  <Minus size={11} strokeWidth={2} />
+                </button>
+                <span className="font-mono text-xs w-4 text-center">{selectedElement.rows || 3}</span>
+                <button
+                  onClick={() => onAddTableRow && onAddTableRow(selectedElement.id)}
+                  title="Add row"
+                  className={`w-6 h-6 flex items-center justify-center rounded-lg transition-colors cursor-pointer ${
+                    isDarkMode ? 'hover:bg-white/10 text-neutral-300' : 'hover:bg-neutral-200 text-neutral-700'
+                  }`}
+                >
+                  <Plus size={11} strokeWidth={2} />
+                </button>
+              </div>
             </div>
-          </div>
 
-          {/* Column controls */}
-          <div className="flex items-center justify-between text-xs p-2 bg-black/20 rounded-xl border border-white/5">
-            <span className="text-neutral-300 font-medium">Columns ({selectedElement.cols || 3})</span>
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => onRemoveTableCol && onRemoveTableCol(selectedElement.id)}
-                disabled={(selectedElement.cols || 3) <= 1}
-                title="Remove last column"
-                className="w-7 h-6 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-white/10 text-white font-bold transition-colors"
-              >
-                -
-              </button>
-              <button
-                onClick={() => onAddTableCol && onAddTableCol(selectedElement.id)}
-                title="Add column on right"
-                className="w-7 h-6 flex items-center justify-center rounded-lg bg-[#6965db] hover:bg-[#5b57d1] text-white font-bold transition-colors shadow-sm"
-              >
-                +
-              </button>
+            {/* Columns Stepper */}
+            <div className={`flex items-center justify-between p-2 rounded-xl border ${
+              isDarkMode ? 'bg-neutral-900/60 border-white/5' : 'bg-neutral-50 border-neutral-200/70'
+            }`}>
+              <span className="text-neutral-400">Cols</span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => onRemoveTableCol && onRemoveTableCol(selectedElement.id)}
+                  disabled={(selectedElement.cols || 3) <= 1}
+                  title="Remove column"
+                  className={`w-6 h-6 flex items-center justify-center rounded-lg disabled:opacity-30 transition-colors cursor-pointer ${
+                    isDarkMode ? 'hover:bg-white/10 text-neutral-300' : 'hover:bg-neutral-200 text-neutral-700'
+                  }`}
+                >
+                  <Minus size={11} strokeWidth={2} />
+                </button>
+                <span className="font-mono text-xs w-4 text-center">{selectedElement.cols || 3}</span>
+                <button
+                  onClick={() => onAddTableCol && onAddTableCol(selectedElement.id)}
+                  title="Add column"
+                  className={`w-6 h-6 flex items-center justify-center rounded-lg transition-colors cursor-pointer ${
+                    isDarkMode ? 'hover:bg-white/10 text-neutral-300' : 'hover:bg-neutral-200 text-neutral-700'
+                  }`}
+                >
+                  <Plus size={11} strokeWidth={2} />
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Header Row toggle */}
-          <div className="flex items-center justify-between text-xs pt-1">
-            <span className="text-neutral-400 font-medium">Header Row Style</span>
+          <div className="flex items-center justify-between text-xs pt-0.5">
+            <span className="text-neutral-400">Header row</span>
             <button
               onClick={() => onToggleTableHeader && onToggleTableHeader(selectedElement.id)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${
+              className={`px-2.5 py-1 rounded-lg text-xs font-normal transition-colors cursor-pointer ${
                 selectedElement.hasHeader
-                  ? 'bg-[#6965db] text-white shadow-sm'
-                  : 'bg-white/10 text-neutral-400 hover:text-white'
+                  ? isDarkMode ? 'bg-white/15 text-white' : 'bg-neutral-900 text-white'
+                  : isDarkMode ? 'bg-white/5 text-neutral-400 hover:text-white' : 'bg-neutral-100 text-neutral-600 hover:text-neutral-900'
               }`}
             >
-              {selectedElement.hasHeader ? 'Enabled ✓' : 'Disabled'}
+              {selectedElement.hasHeader ? 'Enabled' : 'Disabled'}
             </button>
-          </div>
-
-          <div className="text-[10px] text-neutral-400 italic text-center pt-1">
-            💡 Tip: Double-click any cell to edit text! Tab to next cell.
           </div>
         </div>
       )}
 
-      {/* Mind Map Auto-Branching Section */}
+      {/* Mind Map Branching Controls */}
       {selectedElement && ['rectangle', 'sticky', 'ellipse', 'diamond', 'text'].includes(selectedElement.type) && !isMulti && (
-        <div className="pb-3 border-b border-white/10 mb-3 space-y-2.5">
+        <div className={`pb-3 border-b mb-3 space-y-2.5 ${
+          isDarkMode ? 'border-white/10' : 'border-neutral-200/80'
+        }`}>
           <div className="flex items-center justify-between">
-            <span className="font-semibold text-neutral-300 text-xs flex items-center gap-1.5">
-              <span>🧠</span> Mind Map Branching
-            </span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#6965db]/20 text-[#827fe2] font-mono">
-              Auto Tree
+            <span className="text-xs font-normal text-neutral-400">
+              Mind map branch
             </span>
           </div>
 
           <div className="grid grid-cols-2 gap-1.5">
             <button
               onClick={() => onAddBranchChild && onAddBranchChild(selectedElement, 'right')}
-              title="Add child branch to right (Shortcut: Tab)"
-              className="py-1.5 px-2 rounded-xl bg-[#6965db]/20 hover:bg-[#6965db]/30 text-[#827fe2] hover:text-[#9794f0] font-semibold text-xs flex items-center justify-center gap-1 transition-colors border border-[#6965db]/30 shadow-sm"
+              title="Add child node (Tab)"
+              className={`py-1.5 px-2.5 rounded-lg text-xs flex items-center justify-between transition-colors border cursor-pointer ${
+                isDarkMode
+                  ? 'bg-white/5 hover:bg-white/10 text-neutral-200 border-white/10'
+                  : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-800 border-neutral-200/80'
+              }`}
             >
-              <span>+ Child</span>
-              <kbd className="text-[9px] px-1 py-0.2 bg-black/30 rounded font-mono">Tab</kbd>
+              <span>Child</span>
+              <kbd className={`text-[10px] px-1 py-0.5 rounded font-mono ${
+                isDarkMode ? 'bg-white/10 text-neutral-400' : 'bg-neutral-200/80 text-neutral-600'
+              }`}>Tab</kbd>
             </button>
             <button
               onClick={() => onAddBranchSibling && onAddBranchSibling(selectedElement)}
-              title="Add sibling branch below (Shortcut: Enter)"
-              className="py-1.5 px-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 font-semibold text-xs flex items-center justify-center gap-1 transition-colors border border-emerald-500/25 shadow-sm"
+              title="Add sibling node (Enter)"
+              className={`py-1.5 px-2.5 rounded-lg text-xs flex items-center justify-between transition-colors border cursor-pointer ${
+                isDarkMode
+                  ? 'bg-white/5 hover:bg-white/10 text-neutral-200 border-white/10'
+                  : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-800 border-neutral-200/80'
+              }`}
             >
-              <span>+ Sibling</span>
-              <kbd className="text-[9px] px-1 py-0.2 bg-black/30 rounded font-mono">↵</kbd>
+              <span>Sibling</span>
+              <kbd className={`text-[10px] px-1 py-0.5 rounded font-mono ${
+                isDarkMode ? 'bg-white/10 text-neutral-400' : 'bg-neutral-200/80 text-neutral-600'
+              }`}>↵</kbd>
             </button>
           </div>
 
-          <div className="flex items-center justify-between text-[11px] text-neutral-400">
-            <span>Branch direction:</span>
+          {/* Directional Pad */}
+          <div className="flex items-center justify-between text-[11px] text-neutral-400 pt-0.5">
+            <span>Direction</span>
             <div className="flex items-center gap-1">
-              <button
-                onClick={() => onAddBranchChild && onAddBranchChild(selectedElement, 'left')}
-                title="Branch Left"
-                className="w-6 h-6 rounded bg-white/5 hover:bg-white/15 text-neutral-300 flex items-center justify-center text-xs"
-              >
-                ←
-              </button>
-              <button
-                onClick={() => onAddBranchChild && onAddBranchChild(selectedElement, 'top')}
-                title="Branch Up"
-                className="w-6 h-6 rounded bg-white/5 hover:bg-white/15 text-neutral-300 flex items-center justify-center text-xs"
-              >
-                ↑
-              </button>
-              <button
-                onClick={() => onAddBranchChild && onAddBranchChild(selectedElement, 'bottom')}
-                title="Branch Down"
-                className="w-6 h-6 rounded bg-white/5 hover:bg-white/15 text-neutral-300 flex items-center justify-center text-xs"
-              >
-                ↓
-              </button>
-              <button
-                onClick={() => onAddBranchChild && onAddBranchChild(selectedElement, 'right')}
-                title="Branch Right"
-                className="w-6 h-6 rounded bg-white/5 hover:bg-white/15 text-neutral-300 flex items-center justify-center text-xs"
-              >
-                →
-              </button>
+              {[
+                { dir: 'left', arrow: '←' },
+                { dir: 'top', arrow: '↑' },
+                { dir: 'bottom', arrow: '↓' },
+                { dir: 'right', arrow: '→' },
+              ].map(({ dir, arrow }) => (
+                <button
+                  key={dir}
+                  onClick={() => onAddBranchChild && onAddBranchChild(selectedElement, dir)}
+                  title={`Branch ${dir}`}
+                  className={`w-6 h-6 rounded-md flex items-center justify-center text-xs transition-colors cursor-pointer ${
+                    isDarkMode ? 'bg-white/5 hover:bg-white/15 text-neutral-300' : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-700'
+                  }`}
+                >
+                  {arrow}
+                </button>
+              ))}
             </div>
           </div>
         </div>
       )}
 
-      <div className="space-y-4 text-xs">
-        {/* Stroke / Border Color */}
+      {/* Main Styles Section */}
+      <div className="space-y-3.5 text-xs">
+        {/* Stroke / Outline Color */}
         <div>
-          <label className="block mb-1.5 font-medium text-neutral-400">
-            {isImage ? 'Border Color' : 'Stroke Color'}
-          </label>
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-[11px] font-normal text-neutral-400">
+              {isImage ? 'Border color' : 'Stroke'}
+            </label>
+            {activeStyle.strokeColor && activeStyle.strokeColor !== 'transparent' && (
+              <span className="text-[10px] font-mono text-neutral-400 uppercase">
+                {activeStyle.strokeColor}
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-5 gap-1.5">
             {isImage && (
               <button
                 onClick={() => update('strokeColor', 'transparent')}
-                className={`w-6 h-6 rounded-md border relative transition-transform ${
-                  activeStyle.strokeColor === 'transparent' ? 'scale-110 ring-2 ring-[#6965db]' : 'hover:scale-105'
-                } ${isDarkMode ? 'border-[#444]' : 'border-neutral-300'}`}
+                className={`h-6 rounded-md border relative transition-all cursor-pointer ${
+                  activeStyle.strokeColor === 'transparent'
+                    ? 'ring-2 ring-offset-2 ring-[#6965db]'
+                    : ''
+                } ${isDarkMode ? 'border-white/10' : 'border-neutral-200'}`}
                 title="No border"
               >
-                <span className="absolute inset-0 flex items-center justify-center text-red-500 font-bold text-xs">
+                <span className="absolute inset-0 flex items-center justify-center text-rose-500 font-bold text-xs">
                   /
                 </span>
               </button>
             )}
-            {STROKE_COLORS.map((color) => (
-              <button
-                key={color}
-                onClick={() => update('strokeColor', color)}
-                className={`w-6 h-6 rounded-md border transition-transform ${
-                  activeStyle.strokeColor === color ? 'scale-110 ring-2 ring-[#6965db]' : 'hover:scale-105'
-                }`}
-                style={{
-                  backgroundColor: color,
-                  borderColor: color === '#ffffff' ? '#666' : 'transparent',
-                }}
-                title={color}
-              />
-            ))}
-            {/* Custom Color Input */}
+            {STROKE_COLORS.map((color) => {
+              const isSelected = activeStyle.strokeColor === color;
+              const isWhite = color === '#ffffff';
+              return (
+                <button
+                  key={color}
+                  onClick={() => update('strokeColor', color)}
+                  className={`h-6 rounded-md border transition-all cursor-pointer relative ${
+                    isSelected
+                      ? `ring-2 ring-offset-2 ring-[#6965db] ${isDarkMode ? 'ring-offset-[#18181c]' : 'ring-offset-white'}`
+                      : 'hover:opacity-90'
+                  }`}
+                  style={{
+                    backgroundColor: color,
+                    borderColor: isWhite ? (isDarkMode ? '#444' : '#d1d5db') : 'transparent',
+                  }}
+                  title={color}
+                />
+              );
+            })}
+
+            {/* Custom Color Input Swatch */}
             <label
               title="Custom stroke color"
-              className="w-6 h-6 rounded-md border border-dashed border-neutral-400 flex items-center justify-center cursor-pointer hover:border-white relative overflow-hidden"
+              className={`h-6 rounded-md border border-dashed flex items-center justify-center cursor-pointer relative overflow-hidden transition-colors ${
+                isDarkMode
+                  ? 'border-neutral-600 hover:border-neutral-300 text-neutral-400'
+                  : 'border-neutral-400 hover:border-neutral-800 text-neutral-600'
+              }`}
             >
-              <span className="text-[10px] leading-none">+</span>
+              <span className="text-xs leading-none font-bold">+</span>
               <input
                 type="color"
-                value={activeStyle.strokeColor && activeStyle.strokeColor !== 'transparent' ? activeStyle.strokeColor : '#ffffff'}
+                value={
+                  activeStyle.strokeColor && activeStyle.strokeColor !== 'transparent'
+                    ? activeStyle.strokeColor
+                    : isDarkMode ? '#ffffff' : '#1e1e1e'
+                }
                 onChange={(e) => update('strokeColor', e.target.value)}
                 className="opacity-0 absolute inset-0 cursor-pointer"
               />
@@ -390,41 +497,55 @@ export default function PropertiesPanel({
           </div>
         </div>
 
-        {/* Background / Fill Color (for shapes and sticky notes) */}
+        {/* Background / Fill Color */}
         {!isLineOrArrowOrPencil && !isImage && (
           <div>
-            <label className="block mb-1.5 font-medium text-neutral-400">Background Fill</label>
-            <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[11px] font-normal text-neutral-400">Background fill</label>
+              {activeStyle.backgroundColor && activeStyle.backgroundColor !== 'transparent' && (
+                <span className="text-[10px] font-mono text-neutral-400 uppercase">
+                  {activeStyle.backgroundColor}
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-5 gap-1.5">
               {BG_COLORS.map((color) => {
                 const isTrans = color === 'transparent';
+                const isSelected = activeStyle.backgroundColor === color;
                 return (
                   <button
                     key={color}
                     onClick={() => update('backgroundColor', color)}
-                    className={`w-6 h-6 rounded-md border relative transition-transform ${
-                      activeStyle.backgroundColor === color
-                        ? 'scale-110 ring-2 ring-[#6965db]'
-                        : 'hover:scale-105'
-                    } ${isDarkMode ? 'border-[#444]' : 'border-neutral-300'}`}
+                    className={`h-6 rounded-md border relative transition-all cursor-pointer ${
+                      isSelected
+                        ? `ring-2 ring-offset-2 ring-[#6965db] ${isDarkMode ? 'ring-offset-[#18181c]' : 'ring-offset-white'}`
+                        : 'hover:opacity-90'
+                    } ${isDarkMode ? 'border-white/10' : 'border-neutral-200'}`}
                     style={{
                       backgroundColor: isTrans ? 'transparent' : color,
                     }}
                     title={isTrans ? 'Transparent' : color}
                   >
                     {isTrans && (
-                      <span className="absolute inset-0 flex items-center justify-center text-red-500 font-bold text-xs">
+                      <span className="absolute inset-0 flex items-center justify-center text-rose-500 font-bold text-xs">
                         /
                       </span>
                     )}
                   </button>
                 );
               })}
+
               {/* Custom background color input */}
               <label
                 title="Custom background color"
-                className="w-6 h-6 rounded-md border border-dashed border-neutral-400 flex items-center justify-center cursor-pointer hover:border-white relative overflow-hidden"
+                className={`h-6 rounded-md border border-dashed flex items-center justify-center cursor-pointer relative overflow-hidden transition-colors ${
+                  isDarkMode
+                    ? 'border-neutral-600 hover:border-neutral-300 text-neutral-400'
+                    : 'border-neutral-400 hover:border-neutral-800 text-neutral-600'
+                }`}
               >
-                <span className="text-[10px] leading-none">+</span>
+                <span className="text-xs leading-none font-bold">+</span>
                 <input
                   type="color"
                   value={
@@ -440,135 +561,225 @@ export default function PropertiesPanel({
           </div>
         )}
 
-        {/* Fill Style */}
+        {/* Fill Style (for shapes) */}
         {!isLineOrArrowOrPencil && selectedElement?.type !== 'sticky' && !isImage && (
           <div>
-            <label className="block mb-1.5 font-medium text-neutral-400">Fill Style</label>
-            <div className="grid grid-cols-4 gap-1 p-1 bg-black/20 rounded-lg">
-              {FILL_STYLES.map((fs) => (
-                <button
-                  key={fs.value}
-                  onClick={() => update('fillStyle', fs.value)}
-                  className={`py-1 text-center rounded text-[11px] capitalize transition-all ${
-                    activeStyle.fillStyle === fs.value
-                      ? 'bg-[#6965db] text-white font-medium shadow-sm'
-                      : isDarkMode
-                      ? 'hover:bg-white/10 text-neutral-400'
-                      : 'hover:bg-neutral-200 text-neutral-600'
-                  }`}
-                >
-                  {fs.label}
-                </button>
-              ))}
+            <label className="block mb-1.5 text-[11px] font-normal text-neutral-400">Fill style</label>
+            <div className={`grid grid-cols-4 gap-0.5 p-1 rounded-xl border ${
+              isDarkMode
+                ? 'bg-neutral-900/60 border-white/5'
+                : 'bg-neutral-100/90 border-neutral-200/70'
+            }`}>
+              {FILL_STYLES.map((fs) => {
+                const isActive = activeStyle.fillStyle === fs.value;
+                return (
+                  <button
+                    key={fs.value}
+                    onClick={() => update('fillStyle', fs.value)}
+                    className={`py-1 text-center rounded-lg text-[11px] capitalize transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+                      isActive
+                        ? isDarkMode
+                          ? 'bg-white/15 text-white font-medium shadow-xs'
+                          : 'bg-white text-neutral-900 font-medium shadow-xs border border-neutral-200/70'
+                        : isDarkMode
+                        ? 'text-neutral-400 hover:text-white'
+                        : 'text-neutral-600 hover:text-neutral-900'
+                    }`}
+                  >
+                    {fs.value === 'none' && (
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <rect x="2" y="2" width="12" height="12" rx="2" strokeDasharray="2 2" />
+                      </svg>
+                    )}
+                    {fs.value === 'hachure' && (
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <rect x="2" y="2" width="12" height="12" rx="2" />
+                        <line x1="3" y1="13" x2="13" y2="3" strokeWidth="1.2" />
+                        <line x1="2" y1="8" x2="8" y2="2" strokeWidth="1.2" />
+                        <line x1="8" y1="14" x2="14" y2="8" strokeWidth="1.2" />
+                      </svg>
+                    )}
+                    {fs.value === 'cross-hatch' && (
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <rect x="2" y="2" width="12" height="12" rx="2" />
+                        <line x1="3" y1="13" x2="13" y2="3" strokeWidth="1.2" />
+                        <line x1="3" y1="3" x2="13" y2="13" strokeWidth="1.2" />
+                      </svg>
+                    )}
+                    {fs.value === 'solid' && (
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                        <rect x="2" y="2" width="12" height="12" rx="2" />
+                      </svg>
+                    )}
+                    <span className="text-[10px] leading-tight">{fs.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
 
         {/* Stroke / Border Width */}
         <div>
-          <label className="block mb-1.5 font-medium text-neutral-400">
-            {isImage ? 'Border Width' : 'Stroke Width'}
+          <label className="block mb-1.5 text-[11px] font-normal text-neutral-400">
+            {isImage ? 'Border thickness' : 'Stroke thickness'}
           </label>
-          <div className="grid grid-cols-3 gap-1 p-1 bg-black/20 rounded-lg">
-            {STROKE_WIDTHS.map((sw) => (
-              <button
-                key={sw.value}
-                onClick={() => update('strokeWidth', sw.value)}
-                className={`py-1 text-center rounded text-[11px] transition-all flex items-center justify-center gap-1 ${
-                  activeStyle.strokeWidth === sw.value
-                    ? 'bg-[#6965db] text-white font-medium shadow-sm'
-                    : isDarkMode
-                    ? 'hover:bg-white/10 text-neutral-400'
-                    : 'hover:bg-neutral-200 text-neutral-600'
-                }`}
-              >
-                <div
-                  className="bg-current rounded-full"
-                  style={{ width: 14, height: Math.max(2, sw.value) }}
-                />
-                <span>{sw.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Stroke Style */}
-        <div>
-          <label className="block mb-1.5 font-medium text-neutral-400">Stroke Style</label>
-          <div className="grid grid-cols-3 gap-1 p-1 bg-black/20 rounded-lg">
-            {STROKE_STYLES.map((st) => (
-              <button
-                key={st.value}
-                onClick={() => update('strokeStyle', st.value)}
-                className={`py-1 text-center rounded text-[11px] capitalize transition-all ${
-                  activeStyle.strokeStyle === st.value
-                    ? 'bg-[#6965db] text-white font-medium shadow-sm'
-                    : isDarkMode
-                    ? 'hover:bg-white/10 text-neutral-400'
-                    : 'hover:bg-neutral-200 text-neutral-600'
-                }`}
-              >
-                {st.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Sloppiness / Roughness */}
-        <div>
-          <label className="block mb-1.5 font-medium text-neutral-400">Sloppiness (Hand-drawn)</label>
-          <div className="grid grid-cols-3 gap-1 p-1 bg-black/20 rounded-lg">
-            {ROUGHNESS_LEVELS.map((rl) => (
-              <button
-                key={rl.value}
-                onClick={() => update('roughness', rl.value)}
-                className={`py-1 text-center rounded text-[11px] transition-all ${
-                  activeStyle.roughness === rl.value
-                    ? 'bg-[#6965db] text-white font-medium shadow-sm'
-                    : isDarkMode
-                    ? 'hover:bg-white/10 text-neutral-400'
-                    : 'hover:bg-neutral-200 text-neutral-600'
-                }`}
-              >
-                {rl.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Typography Controls for text and sticky notes */}
-        {isTextOrSticky && (
-          <div className="pt-2 border-t border-white/10">
-            <label className="block mb-1.5 font-medium text-neutral-400 flex items-center gap-1">
-              <TypeIcon size={12} /> Font Size
-            </label>
-            <div className="grid grid-cols-4 gap-1 p-1 bg-black/20 rounded-lg">
-              {FONT_SIZES.map((fs) => (
+          <div className={`grid grid-cols-3 gap-0.5 p-1 rounded-xl border ${
+            isDarkMode
+              ? 'bg-neutral-900/60 border-white/5'
+              : 'bg-neutral-100/90 border-neutral-200/70'
+          }`}>
+            {STROKE_WIDTHS.map((sw) => {
+              const isActive = activeStyle.strokeWidth === sw.value;
+              return (
                 <button
-                  key={fs.value}
-                  onClick={() => update('fontSize', fs.value)}
-                  className={`py-1 text-center rounded text-[11px] font-bold transition-all ${
-                    activeStyle.fontSize === fs.value
-                      ? 'bg-[#6965db] text-white shadow-sm'
+                  key={sw.value}
+                  onClick={() => update('strokeWidth', sw.value)}
+                  className={`py-1.5 text-center rounded-lg text-[11px] transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    isActive
+                      ? isDarkMode
+                        ? 'bg-white/15 text-white font-medium shadow-xs'
+                        : 'bg-white text-neutral-900 font-medium shadow-xs border border-neutral-200/70'
                       : isDarkMode
-                      ? 'hover:bg-white/10 text-neutral-400'
-                      : 'hover:bg-neutral-200 text-neutral-600'
+                      ? 'text-neutral-400 hover:text-white'
+                      : 'text-neutral-600 hover:text-neutral-900'
                   }`}
                 >
-                  {fs.label}
+                  <div
+                    className="bg-current rounded-full"
+                    style={{ width: 14, height: Math.max(1.5, sw.value) }}
+                  />
+                  <span>{sw.label}</span>
                 </button>
-              ))}
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Stroke Style (Solid, Dashed, Dotted) */}
+        <div>
+          <label className="block mb-1.5 text-[11px] font-normal text-neutral-400">Stroke style</label>
+          <div className={`grid grid-cols-3 gap-0.5 p-1 rounded-xl border ${
+            isDarkMode
+              ? 'bg-neutral-900/60 border-white/5'
+              : 'bg-neutral-100/90 border-neutral-200/70'
+          }`}>
+            {STROKE_STYLES.map((st) => {
+              const isActive = activeStyle.strokeStyle === st.value;
+              return (
+                <button
+                  key={st.value}
+                  onClick={() => update('strokeStyle', st.value)}
+                  className={`py-1.5 text-center rounded-lg text-[11px] capitalize transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                    isActive
+                      ? isDarkMode
+                        ? 'bg-white/15 text-white font-medium shadow-xs'
+                        : 'bg-white text-neutral-900 font-medium shadow-xs border border-neutral-200/70'
+                      : isDarkMode
+                      ? 'text-neutral-400 hover:text-white'
+                      : 'text-neutral-600 hover:text-neutral-900'
+                  }`}
+                >
+                  {st.value === 'solid' && (
+                    <svg width="24" height="6" viewBox="0 0 24 6">
+                      <line x1="2" y1="3" x2="22" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                  )}
+                  {st.value === 'dashed' && (
+                    <svg width="24" height="6" viewBox="0 0 24 6">
+                      <line x1="2" y1="3" x2="22" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeDasharray="4 3" />
+                    </svg>
+                  )}
+                  {st.value === 'dotted' && (
+                    <svg width="24" height="6" viewBox="0 0 24 6">
+                      <line x1="2" y1="3" x2="22" y2="3" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="1 4" />
+                    </svg>
+                  )}
+                  <span className="text-[10px] leading-tight">{st.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Roughness (Sloppiness / Hand-drawn feel) */}
+        <div>
+          <label className="block mb-1.5 text-[11px] font-normal text-neutral-400">Sloppiness</label>
+          <div className={`grid grid-cols-3 gap-0.5 p-1 rounded-xl border ${
+            isDarkMode
+              ? 'bg-neutral-900/60 border-white/5'
+              : 'bg-neutral-100/90 border-neutral-200/70'
+          }`}>
+            {ROUGHNESS_LEVELS.map((rl) => {
+              const isActive = activeStyle.roughness === rl.value;
+              return (
+                <button
+                  key={rl.value}
+                  onClick={() => update('roughness', rl.value)}
+                  className={`py-1.5 text-center rounded-lg text-[11px] transition-all cursor-pointer ${
+                    isActive
+                      ? isDarkMode
+                        ? 'bg-white/15 text-white font-medium shadow-xs'
+                        : 'bg-white text-neutral-900 font-medium shadow-xs border border-neutral-200/70'
+                      : isDarkMode
+                      ? 'text-neutral-400 hover:text-white'
+                      : 'text-neutral-600 hover:text-neutral-900'
+                  }`}
+                >
+                  {rl.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Typography Controls */}
+        {isTextOrSticky && (
+          <div className={`pt-2.5 border-t space-y-2.5 ${
+            isDarkMode ? 'border-white/10' : 'border-neutral-200/80'
+          }`}>
+            <div>
+              <label className="block mb-1.5 text-[11px] font-normal text-neutral-400 flex items-center gap-1">
+                <TypeIcon size={12} strokeWidth={1.5} />
+                <span>Font size</span>
+              </label>
+              <div className={`grid grid-cols-4 gap-0.5 p-1 rounded-xl border ${
+                isDarkMode
+                  ? 'bg-neutral-900/60 border-white/5'
+                  : 'bg-neutral-100/90 border-neutral-200/70'
+              }`}>
+                {FONT_SIZES.map((fs) => {
+                  const isActive = activeStyle.fontSize === fs.value;
+                  return (
+                    <button
+                      key={fs.value}
+                      onClick={() => update('fontSize', fs.value)}
+                      className={`py-1 text-center rounded-lg text-[11px] font-medium transition-all cursor-pointer ${
+                        isActive
+                          ? isDarkMode
+                            ? 'bg-white/15 text-white shadow-xs'
+                            : 'bg-white text-neutral-900 shadow-xs border border-neutral-200/70'
+                          : isDarkMode
+                          ? 'text-neutral-400 hover:text-white'
+                          : 'text-neutral-600 hover:text-neutral-900'
+                      }`}
+                    >
+                      {fs.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            <div className="mt-2">
-              <label className="block mb-1.5 font-medium text-neutral-400">Font Family</label>
+            <div>
+              <label className="block mb-1.5 text-[11px] font-normal text-neutral-400">Typeface</label>
               <select
                 value={activeStyle.fontFamily || "'Patrick Hand', cursive"}
                 onChange={(e) => update('fontFamily', e.target.value)}
-                className={`w-full py-1 px-2 rounded-lg border text-xs outline-none ${
+                className={`w-full py-1.5 px-2.5 rounded-lg border text-xs outline-none transition-colors cursor-pointer ${
                   isDarkMode
-                    ? 'bg-[#1e1e24] border-[#34343e] text-neutral-200'
-                    : 'bg-neutral-50 border-neutral-300 text-neutral-800'
+                    ? 'bg-[#1e1e24] border-white/10 text-neutral-200 focus:border-white/20'
+                    : 'bg-neutral-50 border-neutral-300 text-neutral-800 focus:border-neutral-400'
                 }`}
               >
                 <option value="'Patrick Hand', cursive">Patrick Hand (Hand-drawn)</option>
@@ -582,9 +793,11 @@ export default function PropertiesPanel({
 
         {/* Opacity slider */}
         <div>
-          <div className="flex justify-between items-center mb-1">
-            <label className="font-medium text-neutral-400">Opacity</label>
-            <span className="text-[11px] text-neutral-400">{activeStyle.opacity || 100}%</span>
+          <div className="flex justify-between items-center mb-1.5">
+            <label className="text-[11px] font-normal text-neutral-400">Opacity</label>
+            <span className="text-[11px] font-mono text-neutral-400 tabular-nums">
+              {activeStyle.opacity || 100}%
+            </span>
           </div>
           <input
             type="range"
@@ -592,11 +805,13 @@ export default function PropertiesPanel({
             max="100"
             value={activeStyle.opacity || 100}
             onChange={(e) => update('opacity', Number(e.target.value))}
-            className="w-full accent-[#6965db] h-1.5 bg-neutral-600 rounded-lg cursor-pointer"
+            className={`w-full accent-[#6965db] h-1.5 rounded-lg cursor-pointer ${
+              isDarkMode ? 'bg-neutral-700' : 'bg-neutral-200'
+            }`}
           />
         </div>
 
-        {/* Reset Original Size for images */}
+        {/* Reset Original Size (for Image) */}
         {isImage && selectedElement?.naturalWidth && selectedElement?.naturalHeight && (
           <div className="pt-1">
             <button
@@ -606,45 +821,50 @@ export default function PropertiesPanel({
                   height: selectedElement.naturalHeight,
                 });
               }}
-              className={`w-full py-1.5 px-2 rounded-lg border flex items-center justify-center gap-1.5 text-[11px] font-medium transition-colors ${
+              className={`w-full py-1.5 px-2.5 rounded-lg border flex items-center justify-center gap-1.5 text-[11px] font-normal transition-colors cursor-pointer ${
                 isDarkMode
-                  ? 'border-[#3a3a46] hover:bg-[#2e2e38] text-neutral-300'
-                  : 'border-neutral-200 hover:bg-neutral-100 text-neutral-700'
+                  ? 'border-white/10 hover:bg-white/5 text-neutral-300'
+                  : 'border-neutral-200/80 hover:bg-neutral-100 text-neutral-700'
               }`}
             >
-              <span>↺ Reset Original Size</span>
+              <RotateCcw size={12} strokeWidth={1.5} />
+              <span>Reset original size</span>
             </button>
           </div>
         )}
 
-        {/* Layering controls when element is selected */}
+        {/* Layering controls */}
         {selectedElement && (
-          <div className="pt-2 border-t border-white/10 flex items-center justify-between gap-2">
+          <div className={`pt-2.5 border-t flex items-center justify-between gap-2 ${
+            isDarkMode ? 'border-white/10' : 'border-neutral-200/80'
+          }`}>
             <button
               onClick={onBringForward}
-              title="Bring Forward"
-              className={`flex-1 py-1 px-2 rounded-lg border flex items-center justify-center gap-1 text-[11px] transition-colors ${
+              title="Bring Forward (Ctrl + ])"
+              className={`flex-1 py-1.5 px-2 rounded-lg border flex items-center justify-center gap-1 text-[11px] font-normal transition-colors cursor-pointer ${
                 isDarkMode
-                  ? 'border-[#3a3a46] hover:bg-[#2e2e38] text-neutral-300'
-                  : 'border-neutral-200 hover:bg-neutral-100 text-neutral-700'
+                  ? 'border-white/10 hover:bg-white/5 text-neutral-300 hover:text-white'
+                  : 'border-neutral-200/80 hover:bg-neutral-100 text-neutral-700 hover:text-neutral-900'
               }`}
             >
-              <ArrowUpToLine size={13} /> Forward
+              <ArrowUpToLine size={12} strokeWidth={1.5} />
+              <span>Forward</span>
             </button>
             <button
               onClick={onSendBackward}
-              title="Send Backward"
-              className={`flex-1 py-1 px-2 rounded-lg border flex items-center justify-center gap-1 text-[11px] transition-colors ${
+              title="Send Backward (Ctrl + [)"
+              className={`flex-1 py-1.5 px-2 rounded-lg border flex items-center justify-center gap-1 text-[11px] font-normal transition-colors cursor-pointer ${
                 isDarkMode
-                  ? 'border-[#3a3a46] hover:bg-[#2e2e38] text-neutral-300'
-                  : 'border-neutral-200 hover:bg-neutral-100 text-neutral-700'
+                  ? 'border-white/10 hover:bg-white/5 text-neutral-300 hover:text-white'
+                  : 'border-neutral-200/80 hover:bg-neutral-100 text-neutral-700 hover:text-neutral-900'
               }`}
             >
-              <ArrowDownToLine size={13} /> Backward
+              <ArrowDownToLine size={12} strokeWidth={1.5} />
+              <span>Backward</span>
             </button>
           </div>
         )}
       </div>
-    </div>
+    </aside>
   );
 }

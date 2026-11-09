@@ -80,7 +80,29 @@ export function wrapText(ctx, text, maxWidth) {
   return allLines.length > 0 ? allLines : [''];
 }
 
-export function renderElement(ctx, rc, element, isSelected = false, onImageLoaded = null) {
+export function getAdaptiveStroke(stroke, isDarkMode = true) {
+  if (!stroke) return isDarkMode ? '#ffffff' : '#1e1e1e';
+  if (!isDarkMode && (stroke === '#ffffff' || stroke.toLowerCase() === '#fff')) {
+    return '#1e1e1e';
+  }
+  if (isDarkMode && (stroke === '#1e1e1e' || stroke === '#000000')) {
+    return '#ffffff';
+  }
+  return stroke;
+}
+
+export function getAdaptiveTextColor(color, isDarkMode = true) {
+  if (!color) return isDarkMode ? '#ffffff' : '#1e1e1e';
+  if (!isDarkMode && (color === '#ffffff' || color.toLowerCase() === '#fff')) {
+    return '#1e1e1e';
+  }
+  if (isDarkMode && (color === '#1e1e1e' || color === '#000000')) {
+    return '#ffffff';
+  }
+  return color;
+}
+
+export function renderElement(ctx, rc, element, isSelected = false, onImageLoaded = null, isDarkMode = true) {
   if (!element) return;
 
   ctx.save();
@@ -97,11 +119,12 @@ export function renderElement(ctx, rc, element, isSelected = false, onImageLoade
 
   const isNoneFill = element.fillStyle === 'none';
   const hasBg = element.backgroundColor && element.backgroundColor !== 'transparent';
+  const adaptiveStroke = getAdaptiveStroke(element.strokeColor, isDarkMode);
 
   const roughOptions = {
     seed: element.seed || 1,
     roughness: element.roughness !== undefined ? element.roughness : 1.2,
-    stroke: element.strokeColor || '#ffffff',
+    stroke: adaptiveStroke,
     strokeWidth: element.strokeWidth || 2,
     fill: !isNoneFill && hasBg ? element.backgroundColor : undefined,
     fillStyle: !isNoneFill ? (element.fillStyle || 'hachure') : undefined,
@@ -121,7 +144,7 @@ export function renderElement(ctx, rc, element, isSelected = false, onImageLoade
       if (w > 0 && h > 0) {
         rc.rectangle(x, y, w, h, roughOptions);
         if (element.text) {
-          drawCenteredTextInShape(ctx, element, x, y, w, h);
+          drawCenteredTextInShape(ctx, element, x, y, w, h, isDarkMode);
         }
       }
       break;
@@ -139,7 +162,7 @@ export function renderElement(ctx, rc, element, isSelected = false, onImageLoade
         const left = [x, y + h / 2];
         rc.polygon([top, right, bottom, left], roughOptions);
         if (element.text) {
-          drawCenteredTextInShape(ctx, element, x, y, w, h);
+          drawCenteredTextInShape(ctx, element, x, y, w, h, isDarkMode);
         }
       }
       break;
@@ -155,7 +178,7 @@ export function renderElement(ctx, rc, element, isSelected = false, onImageLoade
         const cy = y + h / 2;
         rc.ellipse(cx, cy, w, h, roughOptions);
         if (element.text) {
-          drawCenteredTextInShape(ctx, element, x, y, w, h);
+          drawCenteredTextInShape(ctx, element, x, y, w, h, isDarkMode);
         }
       }
       break;
@@ -192,7 +215,7 @@ export function renderElement(ctx, rc, element, isSelected = false, onImageLoade
           const p = element.points[0];
           ctx.beginPath();
           ctx.arc(p.x, p.y, (element.strokeWidth || 2) / 2, 0, Math.PI * 2);
-          ctx.fillStyle = element.strokeColor || '#ffffff';
+          ctx.fillStyle = adaptiveStroke;
           ctx.fill();
         } else {
           const pts = element.points.map((p) => [p.x, p.y]);
@@ -251,7 +274,7 @@ export function renderElement(ctx, rc, element, isSelected = false, onImageLoade
       const fontSize = element.fontSize || 24;
       const fontFamily = element.fontFamily || "'Patrick Hand', cursive";
       ctx.font = `${fontSize}px ${fontFamily}`;
-      ctx.fillStyle = element.strokeColor || '#ffffff';
+      ctx.fillStyle = getAdaptiveTextColor(element.textColor || element.strokeColor, isDarkMode);
       ctx.textBaseline = 'top';
 
       const lines = String(element.text || '').split('\n');
@@ -377,7 +400,7 @@ export function renderElement(ctx, rc, element, isSelected = false, onImageLoade
             ctx.rect(cellX + 1, cellY + 1, colW - 2, rowH - 2);
             ctx.clip();
 
-            ctx.fillStyle = element.strokeColor || '#ffffff';
+            ctx.fillStyle = getAdaptiveTextColor(element.textColor || element.strokeColor, isDarkMode);
             ctx.font = isHeaderRow
               ? `bold ${fontSize}px ${fontFamily}`
               : `${fontSize}px ${fontFamily}`;
@@ -410,12 +433,12 @@ export function renderElement(ctx, rc, element, isSelected = false, onImageLoade
 }
 
 // Draw centered text inside shapes
-function drawCenteredTextInShape(ctx, element, x, y, w, h) {
+function drawCenteredTextInShape(ctx, element, x, y, w, h, isDarkMode = true) {
   if (!element.text) return;
   const fontSize = element.fontSize || 20;
   const fontFamily = element.fontFamily || "'Patrick Hand', cursive";
   ctx.save();
-  ctx.fillStyle = element.textColor || element.strokeColor || '#ffffff';
+  ctx.fillStyle = getAdaptiveTextColor(element.textColor || element.strokeColor, isDarkMode);
   ctx.font = `${fontSize}px ${fontFamily}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';

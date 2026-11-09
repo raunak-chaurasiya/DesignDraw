@@ -2,17 +2,36 @@ import { create } from 'zustand';
 import { TOOLS, DEFAULT_STYLE } from '../constants';
 import { updateAllConnectedArrows } from '../utils/binding';
 import { validateScene } from '../utils/validation';
-import { getElementBounds } from '../utils/math';
+import { getElementBounds, generateId } from '../utils/math';
 import { measureTextBounds } from '../utils/textMeasurement';
 import { createBranchNode } from '../utils/mindmap';
 import { useCollabStore } from './useCollabStore';
 
-function generateId(prefix = 'el') {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return `${prefix}-${crypto.randomUUID()}`;
+const STORAGE_KEY_BOARDS = 'designdraw_cloud_boards';
+const STORAGE_KEY_THEME = 'design-draw-theme';
+
+function getStoredBoards() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_BOARDS);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
   }
-  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 }
+
+function getStoredTheme() {
+  if (typeof window === 'undefined') return true;
+  try {
+    const val = localStorage.getItem(STORAGE_KEY_THEME);
+    if (val !== null) return val === 'dark';
+    return true;
+  } catch {
+    return true;
+  }
+}
+
+const initialDarkMode = getStoredTheme();
 
 export const useCanvasStore = create((set, get) => ({
   // Scene elements & Selection
@@ -26,7 +45,7 @@ export const useCanvasStore = create((set, get) => ({
   // Viewport & Canvas Layout
   pan: { x: 0, y: 0 },
   zoom: 1,
-  isDarkMode: true,
+  isDarkMode: initialDarkMode,
   showGrid: true,
   canvasDimensions: {
     width: typeof window !== 'undefined' ? window.innerWidth : 1200,
@@ -36,7 +55,7 @@ export const useCanvasStore = create((set, get) => ({
   // Active Tool & Lock
   activeTool: TOOLS.SELECT,
   isLocked: false,
-  currentStyle: DEFAULT_STYLE,
+  currentStyle: initialDarkMode ? DEFAULT_STYLE : { ...DEFAULT_STYLE, strokeColor: '#1e1e1e' },
 
   // Inline Editors
   editingText: null, // { id, type, x, y, width, height, text, isNew, fontSize, fontFamily, color, arrowId }
@@ -46,8 +65,20 @@ export const useCanvasStore = create((set, get) => ({
   isMenuOpen: false,
   isExportOpen: false,
   isHelpOpen: false,
+  isBoardsListOpen: false,
   isPropertiesOpen: typeof window !== 'undefined' ? window.innerWidth > 768 : false,
   showIntro: true,
+
+  // Saved Boards
+  cloudBoards: getStoredBoards() || [
+    {
+      id: 'board-demo-1',
+      title: 'System Architecture',
+      updatedAt: Date.now() - 3600000,
+      elementsCount: 6,
+      elements: [],
+    },
+  ],
 
   // Toast Notification
   toastMessage: null,
@@ -74,7 +105,29 @@ export const useCanvasStore = create((set, get) => ({
     set({ [modalName]: isOpen });
   },
 
-  setIsDarkMode: (isDark) => set({ isDarkMode: isDark }),
+  setIsDarkMode: (isDark) => {
+    try {
+      localStorage.setItem(STORAGE_KEY_THEME, isDark ? 'dark' : 'light');
+    } catch {
+      // ignore
+    }
+    set((state) => {
+      const prevStroke = state.currentStyle.strokeColor;
+      let newStroke = prevStroke;
+      if (!isDark && (prevStroke === '#ffffff' || !prevStroke)) {
+        newStroke = '#1e1e1e';
+      } else if (isDark && prevStroke === '#1e1e1e') {
+        newStroke = '#ffffff';
+      }
+      return {
+        isDarkMode: isDark,
+        currentStyle: {
+          ...state.currentStyle,
+          strokeColor: newStroke,
+        },
+      };
+    });
+  },
   setShowGrid: (show) => set({ showGrid: show }),
   setShowIntro: (show) => set({ showIntro: show }),
   setIsLocked: (locked) => set({ isLocked: locked }),
@@ -765,5 +818,54 @@ export const useCanvasStore = create((set, get) => ({
     const selected = elements.find((el) => el.id === selectedElementIds[0]);
     if (!selected || selected.type !== 'table') return;
     updateSelectedProperties({ hasHeader: !selected.hasHeader });
+  },
+
+  // Saved Board Actions
+  setIsBoardsListOpen: (isOpen) => set({ isBoardsListOpen: isOpen }),
+
+  saveCurrentBoardToCloud: (customTitle) => {
+    const { elements, cloudBoards, showToast } = get();
+    if (!elements || elements.length === 0) {
+      showToast('Canvas is empty. Draw something before saving');
+      return false;
+    }
+
+    const title = customTitle || `Diagram #${cloudBoards.length + 1}`;
+    const newBoard = {
+      id: `cloud-${Date.now()}`,
+      title,
+      updatedAt: Date.now(),
+      elementsCount: elements.length,
+      elements: JSON.parse(JSON.stringify(elements)),
+    };
+
+    const updated = [newBoard, ...cloudBoards];
+    set({ cloudBoards: updated });
+    try {
+      localStorage.setItem(STORAGE_KEY_BOARDS, JSON.stringify(updated));
+    } catch (e) {
+      console.error('Failed to save to localStorage', e);
+    }
+    showToast(`Saved "${title}"`);
+    return true;
+  },
+
+  deleteCloudBoard: (boardId) => {
+    const { cloudBoards, showToast } = get();
+    const remaining = cloudBoards.filter((b) => b.id !== boardId);
+    set({ cloudBoards: remaining });
+    try {
+      localStorage.setItem(STORAGE_KEY_BOARDS, JSON.stringify(remaining));
+    } catch (e) {
+      console.error('Failed to delete from localStorage', e);
+    }
+    showToast('Board deleted');
+  },
+
+  loadCloudBoard: (boardId) => {
+    const { cloudBoards, loadScene } = get();
+    const target = cloudBoards.find((b) => b.id === boardId);
+    if (!target) return;
+    loadScene(target.elements || []);
   },
 }));

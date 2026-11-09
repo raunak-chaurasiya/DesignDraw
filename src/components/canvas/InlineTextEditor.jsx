@@ -88,8 +88,12 @@ function InlineTextEditorInner({ editingText }) {
       />
 
       {/* Quick Action buttons below text input */}
-      <div className="flex items-center justify-between gap-3 px-2 py-1 bg-[#1e1e24]/95 text-neutral-300 rounded-lg border border-[#34343e] shadow-lg text-[11px]">
-        <span className="text-neutral-400">
+      <div className={`flex items-center justify-between gap-3 px-2.5 py-1 rounded-lg border shadow-lg text-[11px] ${
+        isDarkMode
+          ? 'bg-[#18181c]/95 border-white/10 text-neutral-300'
+          : 'bg-white/95 border-neutral-200 text-neutral-700 shadow-neutral-200/50'
+      }`}>
+        <span className={isDarkMode ? 'text-neutral-400' : 'text-neutral-500'}>
           {editingText.type === 'sticky'
             ? 'Ctrl+Enter to save • Esc to cancel'
             : 'Enter to save • Shift+Enter for newline • Esc to cancel'}
@@ -98,7 +102,11 @@ function InlineTextEditorInner({ editingText }) {
           <button
             onClick={() => cancelEditingText()}
             title="Cancel (Esc)"
-            className="p-1 hover:bg-white/10 rounded text-neutral-400 hover:text-white"
+            className={`p-1 rounded transition-colors ${
+              isDarkMode
+                ? 'hover:bg-white/10 text-neutral-400 hover:text-white'
+                : 'hover:bg-neutral-100 text-neutral-500 hover:text-neutral-900'
+            }`}
           >
             <X size={13} />
           </button>

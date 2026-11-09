@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Download, X, Image as ImageIcon, Check, Copy, AlertCircle } from 'lucide-react';
+import { Download, X, Check, Copy, AlertCircle } from 'lucide-react';
 import { exportToJpg, exportToPng, exportToJson, generateExportCanvas, prepareElementsForExport } from '../utils/export';
 
 function canvasToBlobAsync(canvas, type = 'image/png', quality = 0.95) {
@@ -16,7 +16,17 @@ export default function ExportModal({
 }) {
   const [format, setFormat] = useState('jpg'); // 'jpg' | 'png' | 'json'
   const [filename, setFilename] = useState('whiteboard-diagram');
-  const [bgColor, setBgColor] = useState(isDarkMode ? '#121212' : '#ffffff');
+  const [customBgColor, setCustomBgColor] = useState(null);
+  const [prevOpen, setPrevOpen] = useState(isOpen);
+
+  if (isOpen !== prevOpen) {
+    setPrevOpen(isOpen);
+    if (isOpen) {
+      setCustomBgColor(null);
+    }
+  }
+
+  const bgColor = customBgColor ?? (isDarkMode ? '#121212' : '#ffffff');
   const [scale, setScale] = useState(2);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(null);
@@ -32,17 +42,22 @@ export default function ExportModal({
     prepareElementsForExport(elements).then(() => {
       if (!isCurrent) return;
 
+      const previewIsDark = bgColor === '#121212' ? true : (bgColor === '#ffffff' ? false : isDarkMode);
+
       const canvas = generateExportCanvas(elements, {
         backgroundColor: format === 'png' && bgColor === 'transparent' ? 'transparent' : bgColor,
         scale: 1, // preview doesn't need high retina scale
         padding: 30,
         maxDimension: 1024,
+        isDarkMode: previewIsDark,
       });
 
       if (previewCanvasRef.current) {
         const container = previewCanvasRef.current;
         container.innerHTML = '';
-        canvas.className = 'max-w-full max-h-[260px] object-contain rounded-lg border border-white/10 shadow-md';
+        canvas.className = `max-w-full max-h-[260px] object-contain rounded-lg border shadow-md ${
+          isDarkMode ? 'border-white/10' : 'border-neutral-200'
+        }`;
         container.appendChild(canvas);
       }
     });
@@ -50,24 +65,28 @@ export default function ExportModal({
     return () => {
       isCurrent = false;
     };
-  }, [isOpen, elements, format, bgColor, scale]);
+  }, [isOpen, elements, format, bgColor, scale, isDarkMode]);
 
   if (!isOpen) return null;
 
   const handleExport = async () => {
     setIsExporting(true);
     try {
+      const exportIsDark = bgColor === '#121212' ? true : (bgColor === '#ffffff' ? false : isDarkMode);
+
       if (format === 'jpg') {
         await exportToJpg(elements, {
           filename,
           backgroundColor: bgColor === 'transparent' ? '#ffffff' : bgColor,
           scale,
+          isDarkMode: exportIsDark,
         });
       } else if (format === 'png') {
         await exportToPng(elements, {
           filename,
           backgroundColor: bgColor,
           scale,
+          isDarkMode: exportIsDark,
         });
       } else if (format === 'json') {
         exportToJson(elements, { theme: isDarkMode ? 'dark' : 'light' });
@@ -85,11 +104,13 @@ export default function ExportModal({
     setCopyError(null);
     try {
       await prepareElementsForExport(elements);
+      const copyIsDark = bgColor === '#121212' ? true : (bgColor === '#ffffff' ? false : isDarkMode);
 
       const canvas = generateExportCanvas(elements, {
         backgroundColor: format === 'jpg' && bgColor === 'transparent' ? '#ffffff' : bgColor,
         scale: 2,
         maxDimension: 2048,
+        isDarkMode: copyIsDark,
       });
 
       const blob = await canvasToBlobAsync(canvas, 'image/png');
@@ -121,40 +142,41 @@ export default function ExportModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-2xl border p-4 sm:p-6 shadow-2xl transition-all ${
+        className={`w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-2xl border p-5 sm:p-6 shadow-xl transition-colors ${
           isDarkMode
-            ? 'bg-[#1e1e24] border-[#34343e] text-neutral-100'
-            : 'bg-white border-neutral-200 text-neutral-900 shadow-neutral-300/50'
+            ? 'bg-[#18181c] border-white/10 text-neutral-100 shadow-black/60'
+            : 'bg-white border-neutral-200 text-neutral-900 shadow-neutral-300/40'
         }`}
         style={{ scrollbarWidth: 'thin' }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-white/10">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-[#6965db]/20 text-[#827fe2]">
-              <ImageIcon size={20} />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold">Export Diagram</h2>
-              <p className="text-xs text-neutral-400">Export high-resolution image or JSON for sharing</p>
-            </div>
+        <div className={`flex items-center justify-between pb-3 border-b ${isDarkMode ? 'border-white/10' : 'border-neutral-200'}`}>
+          <div>
+            <h2 className="text-base font-medium">Export image</h2>
+            <p className="text-xs text-neutral-400 mt-0.5">Save as PNG, JPG, or JSON project file</p>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
+            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+              isDarkMode ? 'hover:bg-white/10 text-neutral-400 hover:text-white' : 'hover:bg-neutral-100 text-neutral-500 hover:text-neutral-900'
+            }`}
           >
-            <X size={18} />
+            <X size={18} strokeWidth={1.5} />
           </button>
         </div>
 
         {/* Live Preview Container (skipped for JSON format) */}
         {format !== 'json' ? (
-          <div className="my-4 p-3 rounded-xl bg-black/30 border border-white/5 flex flex-col items-center justify-center min-h-[140px] overflow-hidden">
+          <div className={`my-4 p-3 rounded-xl border flex flex-col items-center justify-center min-h-[140px] overflow-hidden ${
+            isDarkMode ? 'bg-black/30 border-white/5' : 'bg-neutral-100 border-neutral-200'
+          }`}>
             <div ref={previewCanvasRef} className="flex items-center justify-center w-full" />
             <span className="text-[10px] text-neutral-500 mt-2 font-mono">Live Resolution Preview</span>
           </div>
         ) : (
-          <div className="my-4 p-4 rounded-xl bg-black/30 border border-white/5 text-center text-xs text-neutral-400">
+          <div className={`my-4 p-4 rounded-xl border text-center text-xs ${
+            isDarkMode ? 'bg-black/30 border-white/5 text-neutral-400' : 'bg-neutral-100 border-neutral-200 text-neutral-600'
+          }`}>
             Export full scene as a reusable JSON project file.
           </div>
         )}
@@ -162,24 +184,28 @@ export default function ExportModal({
         {/* Export Format Selector */}
         <div className="space-y-4 text-xs">
           <div>
-            <label className="block font-medium text-neutral-300 mb-1.5">Format</label>
+            <label className="block text-neutral-400 mb-1.5 font-normal">Format</label>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { id: 'jpg', label: 'JPG Image', desc: 'Solid background' },
-                { id: 'png', label: 'PNG Image', desc: 'Transparent or solid' },
-                { id: 'json', label: 'JSON Project', desc: 'Importable data' },
+                { id: 'jpg', label: 'JPG', desc: 'Solid background' },
+                { id: 'png', label: 'PNG', desc: 'Transparent or solid' },
+                { id: 'json', label: 'JSON', desc: 'Reusable scene' },
               ].map((f) => (
                 <button
                   key={f.id}
                   onClick={() => setFormat(f.id)}
-                  className={`p-2.5 rounded-xl border text-left transition-all ${
+                  className={`p-2.5 rounded-lg border text-left transition-colors cursor-pointer ${
                     format === f.id
-                      ? 'border-[#6965db] bg-[#6965db]/15 text-white ring-1 ring-[#6965db]'
-                      : 'border-white/10 bg-white/5 text-neutral-400 hover:bg-white/10 hover:text-white'
+                      ? isDarkMode
+                        ? 'border-white/20 bg-white/10 text-white'
+                        : 'border-neutral-900 bg-neutral-900 text-white'
+                      : isDarkMode
+                      ? 'border-white/8 bg-white/[0.02] text-neutral-400 hover:bg-white/[0.05] hover:text-white'
+                      : 'border-neutral-200 bg-neutral-50 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'
                   }`}
                 >
-                  <div className="font-semibold">{f.label}</div>
-                  <div className="text-[10px] opacity-70 mt-0.5">{f.desc}</div>
+                  <div className="font-normal">{f.label}</div>
+                  <div className={`text-[10px] mt-0.5 ${format === f.id ? 'text-white/70' : 'text-neutral-500'}`}>{f.desc}</div>
                 </button>
               ))}
             </div>
@@ -187,15 +213,15 @@ export default function ExportModal({
 
           {/* Filename input */}
           <div>
-            <label className="block font-medium text-neutral-300 mb-1.5">Filename</label>
+            <label className="block text-neutral-400 mb-1.5 font-normal">Filename</label>
             <input
               type="text"
               value={filename}
               onChange={(e) => setFilename(e.target.value)}
-              className={`w-full px-3 py-2 rounded-xl border text-xs outline-none focus:border-[#6965db] ${
+              className={`w-full px-3 py-2 rounded-lg border text-xs outline-none ${
                 isDarkMode
-                  ? 'bg-[#18181f] border-[#34343e] text-white'
-                  : 'bg-neutral-50 border-neutral-300 text-neutral-900'
+                  ? 'bg-white/[0.04] border-white/10 text-white focus:border-white/30'
+                  : 'bg-neutral-50 border-neutral-200 text-neutral-900 focus:border-neutral-400'
               }`}
             />
           </div>
@@ -203,7 +229,7 @@ export default function ExportModal({
           {/* Background color options for image export */}
           {format !== 'json' && (
             <div>
-              <label className="block font-medium text-neutral-300 mb-1.5">Canvas Background</label>
+              <label className="block text-neutral-400 mb-1.5 font-normal">Background</label>
               <div className="flex items-center gap-2">
                 {[
                   { label: 'Dark', value: '#121212' },
@@ -212,11 +238,15 @@ export default function ExportModal({
                 ].map((bg) => (
                   <button
                     key={bg.value}
-                    onClick={() => setBgColor(bg.value)}
-                    className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                    onClick={() => setCustomBgColor(bg.value)}
+                    className={`px-3 py-1.5 rounded-md border text-xs transition-colors cursor-pointer ${
                       bgColor === bg.value
-                        ? 'border-[#6965db] bg-[#6965db]/20 text-[#827fe2]'
-                        : 'border-white/10 hover:bg-white/5 text-neutral-400'
+                        ? isDarkMode
+                          ? 'border-white/20 bg-white/15 text-white'
+                          : 'border-neutral-900 bg-neutral-900 text-white'
+                        : isDarkMode
+                        ? 'border-white/8 hover:bg-white/5 text-neutral-400'
+                        : 'border-neutral-200 hover:bg-neutral-100 text-neutral-600'
                     }`}
                   >
                     {bg.label}
@@ -229,20 +259,24 @@ export default function ExportModal({
           {/* Resolution Scale */}
           {format !== 'json' && (
             <div>
-              <label className="block font-medium text-neutral-300 mb-1.5">Export Scale</label>
+              <label className="block text-neutral-400 mb-1.5 font-normal">Scale</label>
               <div className="flex items-center gap-2">
                 {[
                   { label: '1x (Standard)', value: 1 },
-                  { label: '2x (Sharp Retina)', value: 2 },
-                  { label: '3x (Ultra Print)', value: 3 },
+                  { label: '2x (Sharp)', value: 2 },
+                  { label: '3x (Print)', value: 3 },
                 ].map((sc) => (
                   <button
                     key={sc.value}
                     onClick={() => setScale(sc.value)}
-                    className={`flex-1 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                    className={`flex-1 py-1.5 rounded-md border text-xs font-mono transition-colors cursor-pointer ${
                       scale === sc.value
-                        ? 'border-[#6965db] bg-[#6965db]/20 text-[#827fe2]'
-                        : 'border-white/10 hover:bg-white/5 text-neutral-400'
+                        ? isDarkMode
+                          ? 'border-white/20 bg-white/15 text-white'
+                          : 'border-neutral-900 bg-neutral-900 text-white'
+                        : isDarkMode
+                        ? 'border-white/8 hover:bg-white/5 text-neutral-400'
+                        : 'border-neutral-200 hover:bg-neutral-100 text-neutral-600'
                     }`}
                   >
                     {sc.label}
@@ -262,18 +296,22 @@ export default function ExportModal({
         )}
 
         {/* Actions */}
-        <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between gap-3">
+        <div className={`mt-6 pt-4 border-t flex items-center justify-between gap-3 ${
+          isDarkMode ? 'border-white/10' : 'border-neutral-200'
+        }`}>
           {format !== 'json' ? (
             <button
               onClick={handleCopyToClipboard}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium border transition-colors ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-normal border transition-colors cursor-pointer ${
                 copied
-                  ? 'border-emerald-500 bg-emerald-500/20 text-emerald-400'
-                  : 'border-white/10 hover:bg-white/5 text-neutral-300'
+                  ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-400'
+                  : isDarkMode
+                  ? 'border-white/10 hover:bg-white/5 text-neutral-300'
+                  : 'border-neutral-200 hover:bg-neutral-100 text-neutral-700'
               }`}
             >
-              {copied ? <Check size={14} /> : <Copy size={14} />}
-              {copied ? 'Copied PNG!' : 'Copy to Clipboard'}
+              {copied ? <Check size={14} strokeWidth={1.5} /> : <Copy size={14} strokeWidth={1.5} />}
+              <span>{copied ? 'Copied' : 'Copy'}</span>
             </button>
           ) : (
             <div />
@@ -282,17 +320,25 @@ export default function ExportModal({
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-medium border border-white/10 hover:bg-white/5 text-neutral-400 transition-colors"
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-normal border transition-colors cursor-pointer ${
+                isDarkMode
+                  ? 'border-white/10 hover:bg-white/5 text-neutral-400 hover:text-neutral-200'
+                  : 'border-neutral-200 hover:bg-neutral-100 text-neutral-600 hover:text-neutral-900'
+              }`}
             >
               Cancel
             </button>
             <button
               onClick={handleExport}
               disabled={isExporting}
-              className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-semibold bg-[#6965db] hover:bg-[#5b57d1] text-white shadow-lg shadow-indigo-500/20 transition-all disabled:opacity-50"
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-normal transition-colors disabled:opacity-50 cursor-pointer ${
+                isDarkMode
+                  ? 'bg-neutral-100 text-neutral-900 hover:bg-white'
+                  : 'bg-neutral-900 text-white hover:bg-neutral-800'
+              }`}
             >
-              <Download size={14} />
-              {isExporting ? 'Exporting...' : 'Export File'}
+              <Download size={14} strokeWidth={1.5} />
+              <span>{isExporting ? 'Exporting...' : 'Export'}</span>
             </button>
           </div>
         </div>

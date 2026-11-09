@@ -52,9 +52,13 @@ export function generateExportCanvas(elements, options = {}) {
     backgroundColor = '#121212',
     scale = 2,
     maxDimension = 4096,
+    isDarkMode,
   } = options;
 
   const validElements = Array.isArray(elements) ? elements.filter(Boolean) : [];
+  const isDark = isDarkMode !== undefined
+    ? isDarkMode
+    : (backgroundColor && backgroundColor !== '#ffffff' && backgroundColor !== '#f8f9fa' && backgroundColor !== 'transparent');
 
   if (validElements.length === 0) {
     const emptyCanvas = document.createElement('canvas');
@@ -105,7 +109,7 @@ export function generateExportCanvas(elements, options = {}) {
 
   // Render each element without selection borders
   for (const element of validElements) {
-    renderElement(ctx, rc, element, false);
+    renderElement(ctx, rc, element, false, null, isDark);
   }
 
   return canvas;
@@ -121,6 +125,7 @@ export async function exportToJpg(elements, options = {}) {
     quality = 0.95,
     padding = 40,
     scale = 2,
+    isDarkMode,
   } = options;
 
   await prepareElementsForExport(elements);
@@ -131,6 +136,7 @@ export async function exportToJpg(elements, options = {}) {
     backgroundColor: solidBg,
     padding,
     scale,
+    isDarkMode,
   });
 
   const dataUrl = canvas.toDataURL('image/jpeg', quality);
@@ -152,6 +158,7 @@ export async function exportToPng(elements, options = {}) {
     backgroundColor = 'transparent',
     padding = 40,
     scale = 2,
+    isDarkMode,
   } = options;
 
   await prepareElementsForExport(elements);
@@ -160,6 +167,7 @@ export async function exportToPng(elements, options = {}) {
     backgroundColor,
     padding,
     scale,
+    isDarkMode,
   });
 
   const dataUrl = canvas.toDataURL('image/png');
