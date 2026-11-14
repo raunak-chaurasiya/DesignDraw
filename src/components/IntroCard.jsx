@@ -35,8 +35,8 @@ export default function IntroCard({
         }`}
       >
         {/* Context Tag */}
-        <span className="inline-block text-[11px] font-mono tracking-wider uppercase text-neutral-400 mb-2">
-          Canvas
+        <span className="inline-block text-[11px] font-mono text-neutral-400 mb-1.5">
+          Freehand & diagramming
         </span>
 
         {/* Title */}
@@ -60,7 +60,7 @@ export default function IntroCard({
                   onSelectTool(item.id);
                   onDismiss();
                 }}
-                className={`flex flex-col items-center justify-center gap-2 p-3 rounded-lg border transition-colors cursor-pointer ${
+                className={`flex flex-col items-center justify-center gap-2 p-3 rounded-xl border transition-colors cursor-pointer ${
                   isDarkMode
                     ? 'bg-white/[0.03] border-white/8 hover:bg-white/[0.07] hover:border-white/15 text-neutral-300 hover:text-white'
                     : 'bg-neutral-50 border-neutral-200 hover:bg-neutral-100 hover:border-neutral-300 text-neutral-700 hover:text-neutral-900'
@@ -77,8 +77,8 @@ export default function IntroCard({
         <p className="text-[11px] text-neutral-500 leading-normal">
           Pick a tool above, click anywhere to start, or paste images with{' '}
           <kbd
-            className={`px-1.5 py-0.5 rounded font-mono text-[10px] ${
-              isDarkMode ? 'bg-white/10 text-neutral-300' : 'bg-neutral-200 text-neutral-700'
+            className={`px-1.5 py-0.5 rounded font-mono text-[10px] border ${
+              isDarkMode ? 'bg-white/10 border-white/10 text-neutral-300' : 'bg-white border-neutral-300 text-neutral-700'
             }`}
           >
             Ctrl + V

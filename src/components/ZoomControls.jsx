@@ -14,7 +14,7 @@ export default function ZoomControls({
   const zoomPercent = Math.round(zoom * 100);
 
   return (
-    <div className="fixed bottom-3 sm:bottom-4 left-3 sm:left-4 z-30 flex items-center gap-1.5 sm:gap-2 select-none">
+    <div className="fixed bottom-16 sm:bottom-4 left-3 sm:left-4 z-30 flex items-center gap-1.5 sm:gap-2 select-none">
       {/* Zoom Widget */}
       <div
         className={`flex items-center gap-0.5 sm:gap-1 px-1 sm:px-1.5 py-1 rounded-xl border shadow-md backdrop-blur-md transition-colors ${

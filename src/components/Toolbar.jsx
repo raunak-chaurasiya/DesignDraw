@@ -52,12 +52,12 @@ export default function Toolbar({
   isCollabActive = false,
 }) {
   return (
-    <div className="fixed top-3 sm:top-4 left-[3.85rem] right-[6.8rem] sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-40 select-none max-w-full sm:max-w-none">
+    <div className="fixed bottom-3 sm:bottom-auto sm:top-4 left-1/2 -translate-x-1/2 z-40 select-none max-w-[calc(100vw-1.5rem)] sm:max-w-none pb-[env(safe-area-inset-bottom,0px)]">
       <div
-        className={`flex items-center gap-0.5 sm:gap-1 p-1 sm:p-1.5 rounded-xl border shadow-lg transition-colors overflow-x-auto touch-pan-x ${
+        className={`flex items-center gap-0.5 sm:gap-1 px-1.5 py-1 sm:p-1.5 rounded-2xl border shadow-xl backdrop-blur-md transition-colors overflow-x-auto touch-pan-x ${
           isDarkMode
-            ? 'bg-[#18181c]/95 border-white/10 text-neutral-300'
-            : 'bg-white/95 border-neutral-200 text-neutral-700 shadow-neutral-200/50'
+            ? 'bg-[#18181c]/95 border-white/10 text-neutral-300 shadow-black/40'
+            : 'bg-white/95 border-neutral-200 text-neutral-700 shadow-neutral-300/50'
         }`}
         style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
       >
@@ -65,7 +65,7 @@ export default function Toolbar({
         <button
           onClick={() => setIsLocked(!isLocked)}
           title={isLocked ? 'Keep selected tool active' : 'Switch to select after drawing'}
-          className={`relative p-1.5 sm:p-2 rounded-lg transition-colors flex items-center justify-center shrink-0 cursor-pointer ${
+          className={`relative p-2 rounded-xl transition-colors flex items-center justify-center shrink-0 cursor-pointer ${
             isLocked
               ? isDarkMode ? 'bg-white/15 text-white' : 'bg-neutral-900 text-white'
               : isDarkMode
@@ -98,7 +98,7 @@ export default function Toolbar({
                 }
               }}
               title={`${item.label} (${item.shortcut})`}
-              className={`relative p-1.5 sm:p-2 rounded-lg transition-colors group flex items-center justify-center shrink-0 cursor-pointer ${
+              className={`relative p-2 rounded-xl transition-colors group flex items-center justify-center shrink-0 cursor-pointer ${
                 isActive
                   ? isDarkMode
                     ? 'bg-white/15 text-white'
@@ -137,7 +137,7 @@ export default function Toolbar({
             <button
               onClick={onToggleProperties}
               title={isPropertiesOpen ? 'Hide styles' : 'Show styles & colors'}
-              className={`relative p-1.5 sm:p-2 rounded-lg transition-colors flex items-center justify-center shrink-0 cursor-pointer ${
+              className={`relative p-2 rounded-xl transition-colors flex items-center justify-center shrink-0 cursor-pointer ${
                 isPropertiesOpen
                   ? isDarkMode ? 'bg-white/15 text-white' : 'bg-neutral-900 text-white'
                   : isDarkMode
@@ -161,7 +161,7 @@ export default function Toolbar({
             <button
               onClick={onOpenCollab}
               title={isCollabActive ? `Live Session (${connectedPeerCount + 1} users)` : 'Live Collaboration'}
-              className={`relative px-2 sm:px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shrink-0 text-xs font-normal cursor-pointer ${
+              className={`relative px-2.5 py-1.5 rounded-xl transition-colors flex items-center gap-1.5 shrink-0 text-xs font-normal cursor-pointer ${
                 isCollabActive
                   ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                   : isDarkMode

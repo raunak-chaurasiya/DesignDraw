@@ -78,15 +78,21 @@ export default function PropertiesPanel({
     : 'Style Defaults';
 
   return (
-    <aside
-      aria-label="Element Properties"
-      className={`fixed top-16 left-3 sm:left-4 z-30 w-[calc(100vw-1.5rem)] sm:w-68 max-w-xs sm:max-w-none max-h-[calc(100vh-5.5rem)] overflow-y-auto rounded-2xl border p-3.5 sm:p-4 shadow-xl backdrop-blur-md transition-colors ${
-        isDarkMode
-          ? 'bg-[#18181c]/95 border-white/10 text-neutral-200 shadow-black/40'
-          : 'bg-white/95 border-neutral-200/80 text-neutral-800 shadow-xl shadow-black/5'
-      }`}
-      style={{ scrollbarWidth: 'thin' }}
-    >
+    <>
+      {/* Mobile backdrop to dismiss panel on tap outside */}
+      <div
+        className="fixed inset-0 z-25 sm:hidden bg-black/30 backdrop-blur-xs"
+        onClick={() => setIsOpen(false)}
+      />
+      <aside
+        aria-label="Element Properties"
+        className={`fixed top-16 left-3 sm:left-4 z-30 w-[calc(100vw-1.5rem)] sm:w-68 max-w-xs sm:max-w-none max-h-[calc(100vh-8.5rem)] sm:max-h-[calc(100vh-5.5rem)] overflow-y-auto rounded-2xl border p-3.5 sm:p-4 shadow-xl backdrop-blur-md transition-colors ${
+          isDarkMode
+            ? 'bg-[#18181c]/95 border-white/10 text-neutral-200 shadow-black/40'
+            : 'bg-white/95 border-neutral-200/80 text-neutral-800 shadow-xl shadow-black/5'
+        }`}
+        style={{ scrollbarWidth: 'thin' }}
+      >
       {/* Header */}
       <div className={`flex items-center justify-between pb-3 border-b mb-3 ${
         isDarkMode ? 'border-white/10' : 'border-neutral-200/80'
@@ -866,5 +872,6 @@ export default function PropertiesPanel({
         )}
       </div>
     </aside>
+    </>
   );
 }
