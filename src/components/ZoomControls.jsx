@@ -26,7 +26,8 @@ export default function ZoomControls({
         <button
           onClick={onZoomOut}
           title="Zoom out (Ctrl + -)"
-          className={`p-1 sm:p-1.5 rounded-lg transition-colors cursor-pointer ${
+          aria-label="Zoom out (Ctrl + -)"
+          className={`p-2 sm:p-1.5 min-w-[34px] min-h-[34px] sm:min-w-0 sm:min-h-0 flex items-center justify-center rounded-lg transition-[color,background-color,transform] duration-150 ease-out cursor-pointer focus-visible:ring-2 focus-visible:ring-[#6965db] focus-visible:outline-none motion-safe:active:scale-[0.96] ${
             isDarkMode ? 'hover:bg-white/5 text-neutral-300 hover:text-white' : 'hover:bg-neutral-100 text-neutral-700'
           }`}
         >
@@ -36,7 +37,8 @@ export default function ZoomControls({
         <button
           onClick={onResetZoom}
           title="Reset zoom (Ctrl + 0)"
-          className={`px-1.5 sm:px-2 py-1 text-[11px] sm:text-xs font-mono font-normal rounded-lg transition-colors min-w-[42px] sm:min-w-[52px] text-center cursor-pointer ${
+          aria-label={`Reset zoom (current: ${zoomPercent}%)`}
+          className={`px-1.5 sm:px-2 py-1 text-[11px] sm:text-xs font-mono tabular-nums font-normal rounded-lg transition-[color,background-color,transform] duration-150 ease-out min-w-[42px] sm:min-w-[52px] text-center cursor-pointer focus-visible:ring-2 focus-visible:ring-[#6965db] focus-visible:outline-none motion-safe:active:scale-[0.96] ${
             isDarkMode ? 'hover:bg-white/5 text-neutral-300 hover:text-white' : 'hover:bg-neutral-100 text-neutral-700'
           }`}
         >
@@ -46,7 +48,8 @@ export default function ZoomControls({
         <button
           onClick={onZoomIn}
           title="Zoom in (Ctrl + +)"
-          className={`p-1 sm:p-1.5 rounded-lg transition-colors cursor-pointer ${
+          aria-label="Zoom in (Ctrl + +)"
+          className={`p-2 sm:p-1.5 min-w-[34px] min-h-[34px] sm:min-w-0 sm:min-h-0 flex items-center justify-center rounded-lg transition-[color,background-color,transform] duration-150 ease-out cursor-pointer focus-visible:ring-2 focus-visible:ring-[#6965db] focus-visible:outline-none motion-safe:active:scale-[0.96] ${
             isDarkMode ? 'hover:bg-white/5 text-neutral-300 hover:text-white' : 'hover:bg-neutral-100 text-neutral-700'
           }`}
         >
@@ -66,7 +69,8 @@ export default function ZoomControls({
           onClick={onUndo}
           disabled={!canUndo}
           title="Undo (Ctrl + Z)"
-          className={`p-1.5 rounded-lg transition-colors ${
+          aria-label="Undo last canvas change (Ctrl + Z)"
+          className={`p-2 sm:p-1.5 min-w-[34px] min-h-[34px] sm:min-w-0 sm:min-h-0 flex items-center justify-center rounded-lg transition-[color,background-color,opacity,transform] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-[#6965db] focus-visible:outline-none motion-safe:enabled:active:scale-[0.96] ${
             !canUndo
               ? 'opacity-30 cursor-not-allowed'
               : isDarkMode
@@ -81,7 +85,8 @@ export default function ZoomControls({
           onClick={onRedo}
           disabled={!canRedo}
           title="Redo (Ctrl + Y)"
-          className={`p-1.5 rounded-lg transition-colors ${
+          aria-label="Redo canvas change (Ctrl + Y)"
+          className={`p-2 sm:p-1.5 min-w-[34px] min-h-[34px] sm:min-w-0 sm:min-h-0 flex items-center justify-center rounded-lg transition-[color,background-color,opacity,transform] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-[#6965db] focus-visible:outline-none motion-safe:enabled:active:scale-[0.96] ${
             !canRedo
               ? 'opacity-30 cursor-not-allowed'
               : isDarkMode

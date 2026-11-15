@@ -86,7 +86,7 @@ export default function PropertiesPanel({
       />
       <aside
         aria-label="Element Properties"
-        className={`fixed top-16 left-3 sm:left-4 z-30 w-[calc(100vw-1.5rem)] sm:w-68 max-w-xs sm:max-w-none max-h-[calc(100vh-8.5rem)] sm:max-h-[calc(100vh-5.5rem)] overflow-y-auto rounded-2xl border p-3.5 sm:p-4 shadow-xl backdrop-blur-md transition-colors ${
+        className={`fixed top-16 left-3 sm:left-4 z-30 w-[calc(100vw-1.5rem)] sm:w-68 max-w-xs sm:max-w-none max-h-[calc(100vh-8.5rem)] sm:max-h-[calc(100vh-5.5rem)] overflow-y-auto overscroll-contain rounded-2xl border p-3.5 sm:p-4 shadow-xl backdrop-blur-md transition-colors ${
           isDarkMode
             ? 'bg-[#18181c]/95 border-white/10 text-neutral-200 shadow-black/40'
             : 'bg-white/95 border-neutral-200/80 text-neutral-800 shadow-xl shadow-black/5'
@@ -110,7 +110,8 @@ export default function PropertiesPanel({
               <button
                 onClick={onDuplicate}
                 title="Duplicate (Ctrl+D)"
-                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                aria-label="Duplicate selected element (Ctrl + D)"
+                className={`p-1.5 rounded-lg transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[#6965db] focus-visible:outline-none ${
                   isDarkMode ? 'hover:bg-white/10 text-neutral-400 hover:text-white' : 'hover:bg-neutral-100 text-neutral-500 hover:text-neutral-900'
                 }`}
               >
@@ -119,7 +120,8 @@ export default function PropertiesPanel({
               <button
                 onClick={onDelete}
                 title="Delete (Del)"
-                className="p-1.5 rounded-lg transition-colors hover:bg-rose-500/15 text-rose-400 hover:text-rose-300 cursor-pointer"
+                aria-label="Delete selected element (Del)"
+                className="p-1.5 rounded-lg transition-colors hover:bg-rose-500/15 text-rose-400 hover:text-rose-300 cursor-pointer focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none"
               >
                 <Trash2 size={13} strokeWidth={1.5} />
               </button>
@@ -128,7 +130,8 @@ export default function PropertiesPanel({
           <button
             onClick={() => setIsOpen(false)}
             title="Close styles"
-            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+            aria-label="Close styling panel"
+            className={`p-1.5 rounded-lg transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[#6965db] focus-visible:outline-none ${
               isDarkMode ? 'hover:bg-white/10 text-neutral-400 hover:text-white' : 'hover:bg-neutral-100 text-neutral-500 hover:text-neutral-900'
             }`}
           >
@@ -446,7 +449,7 @@ export default function PropertiesPanel({
             {isImage && (
               <button
                 onClick={() => update('strokeColor', 'transparent')}
-                className={`h-6 rounded-md border relative transition-all cursor-pointer ${
+                className={`h-6 rounded-md border relative transition-[box-shadow,opacity,border-color] duration-150 ease-out cursor-pointer ${
                   activeStyle.strokeColor === 'transparent'
                     ? 'ring-2 ring-offset-2 ring-[#6965db]'
                     : ''
@@ -465,7 +468,7 @@ export default function PropertiesPanel({
                 <button
                   key={color}
                   onClick={() => update('strokeColor', color)}
-                  className={`h-6 rounded-md border transition-all cursor-pointer relative ${
+                  className={`h-6 rounded-md border transition-[box-shadow,opacity,border-color] duration-150 ease-out cursor-pointer relative ${
                     isSelected
                       ? `ring-2 ring-offset-2 ring-[#6965db] ${isDarkMode ? 'ring-offset-[#18181c]' : 'ring-offset-white'}`
                       : 'hover:opacity-90'
@@ -523,7 +526,7 @@ export default function PropertiesPanel({
                   <button
                     key={color}
                     onClick={() => update('backgroundColor', color)}
-                    className={`h-6 rounded-md border relative transition-all cursor-pointer ${
+                    className={`h-6 rounded-md border relative transition-[box-shadow,opacity,border-color] duration-150 ease-out cursor-pointer ${
                       isSelected
                         ? `ring-2 ring-offset-2 ring-[#6965db] ${isDarkMode ? 'ring-offset-[#18181c]' : 'ring-offset-white'}`
                         : 'hover:opacity-90'
@@ -582,7 +585,7 @@ export default function PropertiesPanel({
                   <button
                     key={fs.value}
                     onClick={() => update('fillStyle', fs.value)}
-                    className={`py-1 text-center rounded-lg text-[11px] capitalize transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+                    className={`py-1 text-center rounded-lg text-[11px] capitalize transition-[color,background-color,border-color] duration-150 ease-out cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
                       isActive
                         ? isDarkMode
                           ? 'bg-white/15 text-white font-medium shadow-xs'
@@ -641,7 +644,7 @@ export default function PropertiesPanel({
                 <button
                   key={sw.value}
                   onClick={() => update('strokeWidth', sw.value)}
-                  className={`py-1.5 text-center rounded-lg text-[11px] transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  className={`py-1.5 text-center rounded-lg text-[11px] transition-[color,background-color,border-color] duration-150 ease-out flex items-center justify-center gap-1.5 cursor-pointer ${
                     isActive
                       ? isDarkMode
                         ? 'bg-white/15 text-white font-medium shadow-xs'
@@ -676,7 +679,7 @@ export default function PropertiesPanel({
                 <button
                   key={st.value}
                   onClick={() => update('strokeStyle', st.value)}
-                  className={`py-1.5 text-center rounded-lg text-[11px] capitalize transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                  className={`py-1.5 text-center rounded-lg text-[11px] capitalize transition-[color,background-color,border-color] duration-150 ease-out cursor-pointer flex flex-col items-center justify-center gap-1 ${
                     isActive
                       ? isDarkMode
                         ? 'bg-white/15 text-white font-medium shadow-xs'
@@ -722,7 +725,7 @@ export default function PropertiesPanel({
                 <button
                   key={rl.value}
                   onClick={() => update('roughness', rl.value)}
-                  className={`py-1.5 text-center rounded-lg text-[11px] transition-all cursor-pointer ${
+                  className={`py-1.5 text-center rounded-lg text-[11px] transition-[color,background-color,border-color] duration-150 ease-out cursor-pointer ${
                     isActive
                       ? isDarkMode
                         ? 'bg-white/15 text-white font-medium shadow-xs'
@@ -760,7 +763,7 @@ export default function PropertiesPanel({
                     <button
                       key={fs.value}
                       onClick={() => update('fontSize', fs.value)}
-                      className={`py-1 text-center rounded-lg text-[11px] font-medium transition-all cursor-pointer ${
+                      className={`py-1 text-center rounded-lg text-[11px] font-medium transition-[color,background-color,border-color] duration-150 ease-out cursor-pointer ${
                         isActive
                           ? isDarkMode
                             ? 'bg-white/15 text-white shadow-xs'

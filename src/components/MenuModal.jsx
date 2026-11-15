@@ -78,8 +78,10 @@ export default function MenuModal({
       <div className="fixed top-3 sm:top-4 left-3 sm:left-4 z-40">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          title="Open menu"
-          className={`p-2 rounded-xl border shadow-lg backdrop-blur-md transition-colors flex items-center justify-center cursor-pointer ${
+          title={isOpen ? 'Close menu' : 'Open menu'}
+          aria-label={isOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={isOpen}
+          className={`p-2 rounded-xl border shadow-lg backdrop-blur-md transition-[color,background-color,border-color,transform] duration-150 ease-out flex items-center justify-center cursor-pointer focus-visible:ring-2 focus-visible:ring-[#6965db] focus-visible:outline-none motion-safe:active:scale-[0.96] ${
             isDarkMode
               ? 'bg-[#18181c]/95 border-white/10 text-neutral-300 hover:text-white hover:bg-white/5'
               : 'bg-white/95 border-neutral-200 text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 shadow-neutral-200/50'
@@ -97,6 +99,9 @@ export default function MenuModal({
             onClick={() => setIsOpen(false)}
           />
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Main menu"
             className={`fixed top-14 sm:top-16 left-3 sm:left-4 z-50 w-72 rounded-2xl border p-3 shadow-xl backdrop-blur-md transition-colors ${
               isDarkMode
                 ? 'bg-[#18181c] border-white/10 text-neutral-200 shadow-black/60'
@@ -107,7 +112,7 @@ export default function MenuModal({
             <div className={`flex items-center justify-between px-2 py-1 border-b mb-2.5 ${
               isDarkMode ? 'border-white/10' : 'border-neutral-200'
             }`}>
-              <span className="text-xs font-normal text-neutral-400">
+              <span className="text-xs font-normal text-neutral-500 dark:text-neutral-400">
                 Menu
               </span>
             </div>
@@ -155,7 +160,7 @@ export default function MenuModal({
                   <FolderOpen size={15} strokeWidth={1.5} className="text-neutral-400" />
                   <span>Saved boards</span>
                 </div>
-                <span className="text-[10px] font-mono text-neutral-500">
+                <span className="text-[10px] font-mono text-neutral-600 dark:text-neutral-400">
                   {cloudBoards.length}
                 </span>
               </button>
@@ -221,7 +226,7 @@ export default function MenuModal({
                   {isDarkMode ? <Moon size={15} strokeWidth={1.5} className="text-neutral-400" /> : <Sun size={15} strokeWidth={1.5} className="text-neutral-400" />}
                   <span>Theme</span>
                 </div>
-                <span className="text-neutral-400 capitalize">{isDarkMode ? 'Dark' : 'Light'}</span>
+                <span className="text-neutral-600 dark:text-neutral-400 capitalize">{isDarkMode ? 'Dark' : 'Light'}</span>
               </button>
 
               {/* Dot Grid */}
@@ -235,7 +240,7 @@ export default function MenuModal({
                   <Grid size={15} strokeWidth={1.5} className="text-neutral-400" />
                   <span>Dot grid</span>
                 </div>
-                <span className="text-neutral-400">{showGrid ? 'On' : 'Off'}</span>
+                <span className="text-neutral-600 dark:text-neutral-400">{showGrid ? 'On' : 'Off'}</span>
               </button>
 
               {/* Shortcuts */}

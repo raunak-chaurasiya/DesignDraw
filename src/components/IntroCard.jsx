@@ -35,7 +35,7 @@ export default function IntroCard({
         }`}
       >
         {/* Context Tag */}
-        <span className="inline-block text-[11px] font-mono text-neutral-400 mb-1.5">
+        <span className="inline-block text-[11px] font-mono text-neutral-500 dark:text-neutral-400 mb-1.5">
           Freehand & diagramming
         </span>
 
@@ -45,7 +45,7 @@ export default function IntroCard({
         </h1>
 
         {/* Description */}
-        <p className="text-xs text-neutral-400 mb-5 leading-relaxed">
+        <p className="text-xs text-neutral-600 dark:text-neutral-400 mb-5 leading-relaxed">
           Sketch diagrams, link shapes with arrows, or draw freehand.
         </p>
 
@@ -74,7 +74,7 @@ export default function IntroCard({
         </div>
 
         {/* Footer Hint */}
-        <p className="text-[11px] text-neutral-500 leading-normal">
+        <p className="text-[11px] text-neutral-600 dark:text-neutral-400 leading-normal">
           Pick a tool above, click anywhere to start, or paste images with{' '}
           <kbd
             className={`px-1.5 py-0.5 rounded font-mono text-[10px] border ${

@@ -137,12 +137,15 @@ export default function ExportModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto overscroll-contain"
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-2xl border p-5 sm:p-6 shadow-xl transition-colors ${
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="export-modal-title"
+        className={`w-full max-w-lg max-h-[92vh] overflow-y-auto overscroll-contain rounded-2xl border p-5 sm:p-6 shadow-xl transition-colors ${
           isDarkMode
             ? 'bg-[#18181c] border-white/10 text-neutral-100 shadow-black/60'
             : 'bg-white border-neutral-200 text-neutral-900 shadow-neutral-300/40'
@@ -152,13 +155,14 @@ export default function ExportModal({
         {/* Header */}
         <div className={`flex items-center justify-between pb-3 border-b ${isDarkMode ? 'border-white/10' : 'border-neutral-200'}`}>
           <div>
-            <h2 className="text-base font-medium">Export image</h2>
-            <p className="text-xs text-neutral-400 mt-0.5">Save as PNG, JPG, or JSON project file</p>
+            <h2 id="export-modal-title" className="text-base font-medium">Export image</h2>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">Save as PNG, JPG, or JSON project file</p>
           </div>
           <button
             onClick={onClose}
-            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-              isDarkMode ? 'hover:bg-white/10 text-neutral-400 hover:text-white' : 'hover:bg-neutral-100 text-neutral-500 hover:text-neutral-900'
+            aria-label="Close export dialog"
+            className={`p-1.5 rounded-lg transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[#6965db] focus-visible:outline-none ${
+              isDarkMode ? 'hover:bg-white/10 text-neutral-400 hover:text-white' : 'hover:bg-neutral-100 text-neutral-600 hover:text-neutral-900'
             }`}
           >
             <X size={18} strokeWidth={1.5} />
@@ -171,11 +175,11 @@ export default function ExportModal({
             isDarkMode ? 'bg-black/30 border-white/5' : 'bg-neutral-100 border-neutral-200'
           }`}>
             <div ref={previewCanvasRef} className="flex items-center justify-center w-full" />
-            <span className="text-[10px] text-neutral-500 mt-2 font-mono">Live Resolution Preview</span>
+            <span className="text-[10px] text-neutral-500 dark:text-neutral-400 mt-2 font-mono">Live Resolution Preview</span>
           </div>
         ) : (
           <div className={`my-4 p-4 rounded-xl border text-center text-xs ${
-            isDarkMode ? 'bg-black/30 border-white/5 text-neutral-400' : 'bg-neutral-100 border-neutral-200 text-neutral-600'
+            isDarkMode ? 'bg-black/30 border-white/5 text-neutral-400' : 'bg-neutral-100 border-neutral-200 text-neutral-700'
           }`}>
             Export full scene as a reusable JSON project file.
           </div>
@@ -184,7 +188,7 @@ export default function ExportModal({
         {/* Export Format Selector */}
         <div className="space-y-4 text-xs">
           <div>
-            <label className="block text-neutral-400 mb-1.5 font-normal">Format</label>
+            <label className="block text-neutral-600 dark:text-neutral-400 mb-1.5 font-normal">Format</label>
             <div className="grid grid-cols-3 gap-2">
               {[
                 { id: 'jpg', label: 'JPG', desc: 'Solid background' },
@@ -205,7 +209,7 @@ export default function ExportModal({
                   }`}
                 >
                   <div className="font-normal">{f.label}</div>
-                  <div className={`text-[10px] mt-0.5 ${format === f.id ? 'text-white/70' : 'text-neutral-500'}`}>{f.desc}</div>
+                  <div className={`text-[10px] mt-0.5 ${format === f.id ? 'text-white/70' : 'text-neutral-500 dark:text-neutral-400'}`}>{f.desc}</div>
                 </button>
               ))}
             </div>
@@ -213,12 +217,13 @@ export default function ExportModal({
 
           {/* Filename input */}
           <div>
-            <label className="block text-neutral-400 mb-1.5 font-normal">Filename</label>
+            <label htmlFor="export-filename" className="block text-neutral-600 dark:text-neutral-400 mb-1.5 font-normal">Filename</label>
             <input
+              id="export-filename"
               type="text"
               value={filename}
               onChange={(e) => setFilename(e.target.value)}
-              className={`w-full px-3 py-2 rounded-lg border text-xs outline-none ${
+              className={`w-full px-3 py-2 rounded-lg border text-xs outline-none focus-visible:ring-2 focus-visible:ring-[#6965db] ${
                 isDarkMode
                   ? 'bg-white/[0.04] border-white/10 text-white focus:border-white/30'
                   : 'bg-neutral-50 border-neutral-200 text-neutral-900 focus:border-neutral-400'
@@ -229,7 +234,7 @@ export default function ExportModal({
           {/* Background color options for image export */}
           {format !== 'json' && (
             <div>
-              <label className="block text-neutral-400 mb-1.5 font-normal">Background</label>
+              <label className="block text-neutral-600 dark:text-neutral-400 mb-1.5 font-normal">Background</label>
               <div className="flex items-center gap-2">
                 {[
                   { label: 'Dark', value: '#121212' },
@@ -246,7 +251,7 @@ export default function ExportModal({
                           : 'border-neutral-900 bg-neutral-900 text-white'
                         : isDarkMode
                         ? 'border-white/8 hover:bg-white/5 text-neutral-400'
-                        : 'border-neutral-200 hover:bg-neutral-100 text-neutral-600'
+                        : 'border-neutral-200 hover:bg-neutral-100 text-neutral-700'
                     }`}
                   >
                     {bg.label}
@@ -259,7 +264,7 @@ export default function ExportModal({
           {/* Resolution Scale */}
           {format !== 'json' && (
             <div>
-              <label className="block text-neutral-400 mb-1.5 font-normal">Scale</label>
+              <label className="block text-neutral-600 dark:text-neutral-400 mb-1.5 font-normal">Scale</label>
               <div className="flex items-center gap-2">
                 {[
                   { label: '1x (Standard)', value: 1 },

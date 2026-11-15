@@ -42,6 +42,9 @@ export default function CloudBoardsModal() {
 
       {/* Modal Container */}
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cloud-boards-title"
         className={`relative w-full max-w-md rounded-2xl border shadow-xl p-5 z-10 transition-colors ${
           isDarkMode
             ? 'bg-[#18181c] border-white/10 text-neutral-100 shadow-black/60'
@@ -53,15 +56,16 @@ export default function CloudBoardsModal() {
           isDarkMode ? 'border-white/10' : 'border-neutral-200'
         }`}>
           <div>
-            <h3 className="text-base font-medium">Saved boards</h3>
-            <p className="text-xs text-neutral-400 mt-0.5">
+            <h3 id="cloud-boards-title" className="text-base font-medium">Saved boards</h3>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
               {cloudBoards.length} {cloudBoards.length === 1 ? 'board' : 'boards'} saved
             </p>
           </div>
 
           <button
             onClick={() => setIsBoardsListOpen(false)}
-            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+            aria-label="Close saved boards"
+            className={`p-1.5 rounded-lg transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[#6965db] focus-visible:outline-none ${
               isDarkMode ? 'text-neutral-400 hover:text-white hover:bg-white/10' : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100'
             }`}
           >
@@ -98,7 +102,8 @@ export default function CloudBoardsModal() {
             value={newBoardTitle}
             onChange={(e) => setNewBoardTitle(e.target.value)}
             placeholder="Board title"
-            className={`flex-1 px-3 py-2 text-xs rounded-lg border outline-none transition-colors ${
+            aria-label="Board title"
+            className={`flex-1 px-3 py-2 text-xs rounded-lg border outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#6965db] ${
               isDarkMode
                 ? 'bg-white/[0.04] border-white/10 text-white placeholder-neutral-500 focus:border-white/30'
                 : 'bg-neutral-50 border-neutral-200 text-neutral-900 placeholder-neutral-400 focus:border-neutral-400'
@@ -106,7 +111,7 @@ export default function CloudBoardsModal() {
           />
           <button
             type="submit"
-            className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-normal rounded-lg transition-colors shrink-0 cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-normal rounded-lg transition-colors shrink-0 cursor-pointer focus-visible:ring-2 focus-visible:ring-[#6965db] focus-visible:outline-none motion-safe:active:scale-[0.96] ${
               isDarkMode
                 ? 'bg-neutral-100 text-neutral-900 hover:bg-white'
                 : 'bg-neutral-900 text-white hover:bg-neutral-800'
@@ -118,7 +123,7 @@ export default function CloudBoardsModal() {
         </form>
 
         {/* Boards List */}
-        <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+        <div className="space-y-1.5 max-h-64 overflow-y-auto overscroll-contain pr-1" style={{ scrollbarWidth: 'thin' }}>
           {cloudBoards.length === 0 ? (
             <div className="text-center py-8 text-neutral-500 text-xs">
               No saved boards yet. Draw on the canvas and click Save.
@@ -139,7 +144,7 @@ export default function CloudBoardsModal() {
                   }`}>
                     {board.title}
                   </h4>
-                  <div className="flex items-center gap-3 mt-0.5 text-[10px] text-neutral-500">
+                  <div className="flex items-center gap-3 mt-0.5 text-[10px] text-neutral-400">
                     <span className="flex items-center gap-1">
                       <Clock size={11} strokeWidth={1.5} />
                       {new Date(board.updatedAt).toLocaleDateString()}

@@ -99,8 +99,14 @@ export default function App() {
     }
   }, [startCollaboration, showToast]);
 
-  // Sync document root theme class and background with current mode
+  // Sync document root theme class and background with current mode (with transition suppression)
   useEffect(() => {
+    const style = document.createElement('style');
+    style.append(
+      document.createTextNode('*,*::before,*::after{transition:none !important}')
+    );
+    document.head.append(style);
+
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
       document.body.style.backgroundColor = '#121212';
@@ -110,6 +116,17 @@ export default function App() {
       document.body.style.backgroundColor = '#f8f9fa';
       document.body.style.color = '#212529';
     }
+
+    void document.body.offsetHeight; // forces a synchronous style flush
+
+    const rafId = requestAnimationFrame(() => {
+      requestAnimationFrame(() => style.remove());
+    });
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      style.remove();
+    };
   }, [isDarkMode]);
 
   // Insert image file from browser file input

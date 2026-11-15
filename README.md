@@ -1,203 +1,132 @@
-# 🎨 DesignDraw — Virtual Whiteboard & Diagram Editor
+# 🎨 DesignDraw
 
 <div align="center">
 
-[![React](https://img.shields.io/badge/React-19.x-blue.svg?logo=react)](https://react.dev/)
-[![Vite](https://img.shields.io/badge/Vite-8.x-646CFF.svg?logo=vite)](https://vitejs.dev/)
-[![TailwindCSS](https://img.shields.io/badge/Tailwind-4.x-38B2AC.svg?logo=tailwind-css)](https://tailwindcss.com/)
-[![RoughJS](https://img.shields.io/badge/Rough.js-Hand--Drawn-orange.svg)](https://roughjs.com/)
-[![Vercel](https://img.shields.io/badge/Vercel-Deploy-black.svg?logo=vercel)](https://vercel.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+**A lightweight, zero-latency virtual whiteboard & diagramming web app with an authentic hand-drawn feel.**
 
-**A lightweight, intuitive virtual whiteboard web application inspired by Excalidraw. Sketch diagrams, flowcharts, wireframes, and notes with an authentic hand-drawn feel, connect shapes dynamically, and export high-resolution JPG images.**
+[![Live Demo](https://img.shields.io/badge/Demo-design--draw.vercel.app-6965db?style=flat-square)](https://design-draw.vercel.app/)
+[![React 19](https://img.shields.io/badge/React-19-61dafb?style=flat-square&logo=react)](https://react.dev/)
+[![Tailwind CSS v4](https://img.shields.io/badge/Tailwind-v4-38bdf8?style=flat-square&logo=tailwindcss)](https://tailwindcss.com/)
+[![Vite](https://img.shields.io/badge/Vite-8-646cff?style=flat-square&logo=vite)](https://vitejs.dev/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 
-[Explore Live Demo](https://design-draw.vercel.app/) · [Report Bug](https://github.com/raunak-chaurasiya/DesignDraw/issues) · [Request Feature](https://github.com/raunak-chaurasiya/DesignDraw/issues)
+[Live Demo](https://design-draw.vercel.app/) · [Report Bug](https://github.com/raunak-chaurasiya/DesignDraw/issues) · [Request Feature](https://github.com/raunak-chaurasiya/DesignDraw/issues)
 
 </div>
 
 ---
 
-## 🌟 Key Features
+## 📌 Overview
 
-### ✏️ 1. Hand-Drawn Sketch Aesthetics (Rough.js)
-- Authentic hand-drawn sketch style powered by **Rough.js**.
-- Customizable **sloppiness / roughness** levels:
-  - **Clean (Architect)**: Crisp and straight lines.
-  - **Artist**: Natural whiteboard sketch strokes.
-  - **Cartoon**: Quirky, organic drawings.
-- Rich fill styles: **Solid**, **Hachure (sketch lines)**, **Cross-hatch**, and **Transparent**.
-
-### 🧲 2. Smart Shape Binding & Magnetic Snapping
-- **Dynamic Connection Points (Anchors)**: Every shape (Rectangle, Diamond, Ellipse, Sticky Note, Text) features 4 magnetic snap anchors (Top, Right, Bottom, Left).
-- **Auto-Following Arrows**: When you connect shapes with an Arrow or Line, moving any shape automatically stretches and rotates the arrow to follow it!
-- **Interactive Reconnecting**: Select any arrow to drag and snap its endpoints to new shapes.
-
-### 🖼️ 3. High-Definition JPG & PNG Export
-- **Export as JPG**: High-resolution (1x, 2x Retina, 3x Ultra-HD) JPG export with 0.95 quality.
-- **Smart Bounding Crop**: Automatically calculates diagram boundaries with clean padding instead of exporting empty canvas.
-- **Background Customization**: Choose dark canvas theme, clean white, or custom background colors.
-- **Copy to Clipboard**: Instant 1-click clipboard copy to paste straight into Slack, Notion, or WhatsApp.
-- **Project JSON Import/Export**: Save editable whiteboard project files (`.json`) to reload anytime.
-
-### 📸 4. Image Paste & Upload (Ctrl + V / Drag & Drop)
-- **Direct Clipboard Paste**: Copy any screenshot or picture and press `Ctrl + V` anywhere on the whiteboard to paste immediately.
-- **Desktop Drag & Drop**: Drag images from your desktop or folders straight onto the canvas.
-- **Toolbar Image Picker**: Dedicated toolbar button and file picker for mobile and desktop uploads.
-- **Proportional Resizing**: Smart corner handles preserve the natural aspect ratio of images without stretching or squishing.
-- **Custom Borders & Opacity**: Add hand-drawn sketch frames or adjust opacity for tracing and wireframing.
-
-### 📦 5. Multi-Element Selection & Grouping (Ctrl + G)
-- **Marquee Drag Selection**: Click and drag on empty canvas to select multiple elements at once with a blue dashed marquee box.
-- **Shift + Click Multi-Select**: Hold `Shift` while clicking to add or remove individual shapes from your selection.
-- **Group & Ungroup**: Press `Ctrl + G` to group shapes together into a single unit, or `Ctrl + Shift + G` to ungroup.
-- **Group-Aware Interaction**: Clicking any member of a group selects the whole group, and dragging moves all grouped elements synchronously.
-- **Smart Alignment Tools**: 1-click alignment toolbar in Properties Panel (Align Left, Center Horizontal, Right, Top, Middle Vertical, Bottom).
-- **Batch Styling & Operations**: Duplicate, Delete, or recolor all selected elements at once.
-
-### 📝 6. Rich Text & Sticky Notes
-- **Direct Canvas Text**: Select Text tool (`T`) and click anywhere to write with auto-focus.
-- **Double-Click Creation**: Double-click on any empty canvas area to start typing.
-- **Handwritten Fonts**: Supports *Patrick Hand*, *Architects Daughter*, *Inter*, and monospace fonts.
-- **Pastel Sticky Notes**: Drop yellow/pastel notes on the board for quick brainstorming.
-
-### 📊 7. Native Hand-Drawn Tables & Grids
-- **Instant Hand-Drawn Tables**: Draw neat, organic, hand-drawn tables with customizable rows and columns.
-- **Floating Quick Controls**: Click any table to access floating quick-actions:
-  - `+ Row` / `- Row`: Dynamically add or remove rows.
-  - `+ Col` / `- Col`: Dynamically add or remove columns.
-  - `Header`: Toggle highlighted header row styling.
-- **In-Place Cell Editing**: Double-click any cell to type text directly inside it.
-- **Keyboard Tab Navigation**: Press `Tab` to navigate to the next cell or auto-add a new row at the table's end! Press `Shift + Tab` for previous cell.
-- **Full Styling & Font Support**: Supports handwritten fonts, roughness levels, and stroke/fill styling.
-
-### 🧠 8. Smart Mind-Map & Tree Mode (Auto-Branching)
-- **Instant Child Branching (`Tab`)**: Select any shape or topic and press `Tab` to auto-spawn a connected child node to the right with an auto-following magnetic arrow!
-- **Instant Sibling Branching (`Enter`)**: Press `Enter` on any child node to auto-spawn a sibling branch directly beneath it connected to the same parent!
-- **Interactive 4-Way Branch Handles**: Hover over any selected shape to reveal glowing `+` buttons on all 4 sides (Right, Bottom, Left, Top) to branch in any direction.
-- **Collision-Free Auto Spacing**: Automatically calculates non-overlapping positions so nodes never collide.
-- **Direct Shape Text**: Double-click any rectangle, diamond, ellipse, or sticky note to write centered text.
-- **Dedicated Mind Map Tool (`M`)**: Drop a "Central Idea" topic on the canvas with 1 click to jumpstart your brainstorm.
-
-### 💥 9. Animated Satisfying Eraser
-- Custom glowing eraser ring cursor following the mouse.
-- **Fading Red Trail**: Real-time trail showing the path being erased.
-- **Particle Burst Explosion**: 16 sparkling dust particles explode whenever an element is erased, giving tactile 60 FPS visual feedback.
-
-### 🔍 10. Infinite Canvas Navigation
-- **Pan**: Hold `Spacebar + Drag`, use `Hand Tool (H)`, or drag with the `Mouse Scroll Wheel`.
-- **Zoom**: Smooth mouse wheel zoom centered at cursor position, or use the bottom-left `[-] 100% [+]` controls.
-- **Undo / Redo**: Multi-step history stack with `Ctrl + Z` and `Ctrl + Y`.
+**DesignDraw** is an open-source virtual whiteboard inspired by Excalidraw, designed for quick sketching, system design diagrams, flowcharts, and collaborative brainstorms. Built with **React 19**, **Rough.js**, and **Tailwind CSS v4**, it combines tactile sketch aesthetics with modern productivity features like **P2P live collaboration**, **smart magnetic arrow snapping**, **auto-branching mind maps**, and **cloud board persistence**.
 
 ---
 
-## ⌨️ Keyboard Shortcuts
+## ✨ Features at a Glance
 
-| Tool / Action | Shortcut | Description |
-|---|---|---|
-| **Selection Tool** | `V` or `1` | Select, move, and resize shapes |
-| **Hand (Pan)** | `H` or `Space + Drag` | Pan and navigate the infinite canvas |
-| **Rectangle** | `R` or `2` | Draw hand-drawn rectangles |
-| **Diamond** | `D` or `3` | Draw decision/flowchart diamonds |
-| **Ellipse / Circle** | `O` or `4` | Draw hand-drawn circles |
-| **Arrow** | `A` or `5` | Connect shapes with dynamic arrows |
-| **Line** | `L` or `6` | Draw straight connector lines |
-| **Pencil / Freehand** | `P` or `7` | Freehand drawing and sketching |
-| **Text** | `T` or `8` | Type text (or double-click canvas) |
-| **Sticky Note** | `N` or `9` | Place sticky brainstorming notes |
-| **Table (Grid)** | `B` | Draw hand-drawn grid tables |
-| **Mind Map Root** | `M` | Spawn a central mind map topic |
-| **Add Child Branch** | `Tab` | Auto-branch connected child node |
-| **Add Sibling Branch** | `Enter` | Auto-branch connected sibling node |
-| **Image Tool** | `I` | Insert image from file picker |
-| **Paste Image** | `Ctrl + V` | Paste screenshot or image from clipboard |
-| **Eraser** | `E` or `0` | Erase elements with particle effects |
-| **Undo** | `Ctrl + Z` | Undo last action |
-| **Redo** | `Ctrl + Y` or `Ctrl + Shift + Z` | Redo undone action |
-| **Select All** | `Ctrl + A` | Select all elements on canvas |
-| **Group Elements** | `Ctrl + G` | Group selected elements together |
-| **Ungroup Elements** | `Ctrl + Shift + G` | Ungroup selected group |
-| **Toggle Multi-Select** | `Shift + Click` | Add/remove shape from selection |
-| **Duplicate** | `Ctrl + D` | Duplicate selected element(s) |
-| **Delete** | `Delete` or `Backspace` | Delete selected element(s) |
-| **Reset Zoom** | `Ctrl + 0` | Reset canvas zoom to 100% |
+| Feature | Description |
+|---|---|
+| ✏️ **Hand-Drawn Aesthetics** | Rough.js canvas with adjustable roughness (Architect, Artist, Cartoon) and organic fill patterns (hachure, cross-hatch, solid). |
+| 🧲 **Smart Shape Binding** | Magnetic connection points on all shapes with auto-following arrows that stay connected when shapes move. |
+| 🌐 **Real-Time Collaboration** | Serverless peer-to-peer room collaboration via WebRTC. Share a link or QR code to draw simultaneously with live remote cursors. |
+| ☁️ **Cloud & Local Storage** | Secure board persistence to the cloud with Clerk authentication, or export/import reusable `.json` scenes locally. |
+| 🧠 **Mind Mapping & Auto-Branch** | Keyboard-driven auto-branching: press `Tab` for connected child nodes and `Enter` for siblings without node overlap. |
+| 📊 **Hand-Drawn Tables** | Native sketch tables with dynamic row/column management and in-place keyboard cell editing. |
+| 🖼️ **High-Res Export & Clipboard** | Export pixel-perfect JPG or PNG images with automatic boundary cropping (1x, 2x Retina, 3x UHD), or copy straight to clipboard. |
+| 🌓 **Light & Dark Canvas** | Full dark and light theme support with smooth visual transitions and mobile-optimized responsive toolbars. |
+
+---
+
+## 🎯 How to Use
+
+### 1. Drawing & Diagramming
+1. **Select a Tool**: Pick a shape from the toolbar (`V` for select, `R` for rectangle, `D` for diamond, `O` for ellipse, `A` for arrow, `P` for pencil).
+2. **Connect Shapes**: Drag an arrow near any shape's magnetic anchor points. The arrow binds automatically and follows the shape when moved.
+3. **Style Elements**: Click the **Palette** icon in the toolbar to customize stroke color, fill pattern, roughness, and stroke width.
+
+### 2. Fast Mind Mapping
+- Click any node and press **`Tab`** to instantly spawn a child branch to the right.
+- Press **`Enter`** to spawn a sibling node beneath it.
+- Hover over any shape to use directional `+` handles.
+
+### 3. Real-Time Collaboration
+1. Click the **Collab** button on the toolbar.
+2. Share the generated room link or QR code with teammates.
+3. Start drawing together with zero setup—peer cursors and updates synchronize in real time.
+
+### 4. Cloud Saving & Local Export
+- **Cloud Sync**: Open Menu (`top-left`) → **Save to cloud** to access your boards across devices (requires Clerk sign-in).
+- **Export**: Click Menu → **Export image** to save as JPG, PNG, or reusable JSON, or copy the cropped diagram directly to your clipboard.
+
+---
+
+## ⌨️ Essential Hotkeys
+
+| Key | Action | Key | Action |
+|---|---|---|---|
+| `V` | Selection tool | `Tab` | Add child mind map branch |
+| `H` / `Space + Drag` | Pan canvas | `Enter` | Add sibling branch |
+| `R` / `D` / `O` | Rectangle / Diamond / Ellipse | `Ctrl + G` | Group selected elements |
+| `A` / `L` | Arrow / Line | `Ctrl + Shift + G` | Ungroup elements |
+| `P` / `E` | Pencil / Eraser | `Ctrl + D` | Duplicate selection |
+| `T` / `N` | Text / Sticky note | `Ctrl + Z` / `Ctrl + Y` | Undo / Redo |
+| `B` | Hand-drawn Table | `Ctrl + 0` | Reset zoom to 100% |
+| `Ctrl + V` | Paste image or screenshot | `Delete` | Remove selected elements |
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Frontend Framework**: [React 19](https://react.dev/)
-- **Build Tool**: [Vite 8](https://vitejs.dev/)
-- **Graphics Engine**: [Rough.js 4.6](https://roughjs.com/) (Hand-drawn algorithmic canvas rendering)
-- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
-- **Icons**: [Lucide React](https://lucide.dev/)
-- **Typography**: [Google Fonts](https://fonts.google.com/) (*Patrick Hand*, *Architects Daughter*, *Inter*, *Fira Code*)
+- **Core**: [React 19](https://react.dev/), [Vite](https://vitejs.dev/)
+- **Canvas Rendering**: [Rough.js](https://roughjs.com/), HTML5 2D Canvas
+- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/), [Lucide React](https://lucide.dev/)
+- **State Management**: [Zustand](https://github.com/pmndrs/zustand)
+- **Collaboration**: WebRTC via [PeerJS](https://peerjs.com/)
+- **Authentication**: [Clerk](https://clerk.com/)
 - **Deployment**: [Vercel](https://vercel.com/)
 
 ---
 
-## 🚀 Getting Started Locally
+## 🚀 Getting Started
 
 ### Prerequisites
-Make sure you have [Node.js](https://nodejs.org/) (v18 or higher) installed.
+- [Node.js](https://nodejs.org/) (v18 or higher)
+- npm or pnpm
 
-### Installation
+### Quick Setup
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/raunak-chaurasiya/DesignDraw.git
-   cd DesignDraw
-   ```
-
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
-
-3. **Start the local development server**:
-   ```bash
-   npm run dev
-   ```
-
-4. **Open in browser**:
-   Navigate to `http://localhost:5173` in your browser.
-
-5. **Build for production**:
-   ```bash
-   npm run build
-   ```
-
----
-
-## ☁️ Deployment on Vercel
-
-### Method 1: Using GitHub (Recommended)
-1. Push your repository to GitHub:
-   ```bash
-   git push -u origin main
-   ```
-2. Go to [vercel.com/new](https://vercel.com/new).
-3. Import your **`DesignDraw`** repository.
-4. Framework preset will automatically detect **Vite**.
-5. Click **Deploy**!
-
-### Method 2: Using Vercel CLI
 ```bash
-npx vercel
+# 1. Clone repository
+git clone https://github.com/raunak-chaurasiya/DesignDraw.git
+cd DesignDraw
+
+# 2. Install dependencies
+npm install
+
+# 3. (Optional) Set up Clerk authentication in .env
+cp .env.example .env
+# Add your VITE_CLERK_PUBLISHABLE_KEY
+
+# 4. Start local dev server
+npm run dev
 ```
-Follow the terminal prompts to instantly deploy to a live URL.
+
+Open `http://localhost:5173` in your browser.
+
+### Build for Production
+
+```bash
+npm run build
+```
 
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
-
----
+Distributed under the [MIT License](LICENSE).
 
 <div align="center">
 
 Crafted with ❤️ by **[Raunak Chaurasiya](https://github.com/raunak-chaurasiya)**
-
-*If you found this project helpful, please give it a ⭐️ on GitHub!*
 
 </div>

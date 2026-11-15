@@ -28,12 +28,12 @@ export default function QrShareModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm select-none overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm select-none overflow-y-auto overscroll-contain"
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`relative w-full max-w-sm sm:max-w-md max-h-[92vh] overflow-y-auto rounded-2xl p-5 sm:p-6 shadow-xl border transition-colors ${
+        className={`relative w-full max-w-sm sm:max-w-md max-h-[92vh] overflow-y-auto overscroll-contain rounded-2xl p-5 sm:p-6 shadow-xl border transition-colors ${
           isDarkMode
             ? 'bg-[#18181c] border-white/10 text-neutral-100 shadow-black/60'
             : 'bg-white border-neutral-200 text-neutral-900 shadow-neutral-300/40'
@@ -127,7 +127,7 @@ export default function QrShareModal({
             <button
               onClick={handleCopy}
               disabled={!shareUrl}
-              className={`flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-normal transition-colors shrink-0 cursor-pointer ${
+              className={`flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-normal transition-colors shrink-0 cursor-pointer motion-safe:active:scale-[0.96] ${
                 copied
                   ? 'bg-emerald-600 text-white'
                   : isDarkMode

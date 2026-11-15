@@ -65,7 +65,9 @@ export default function Toolbar({
         <button
           onClick={() => setIsLocked(!isLocked)}
           title={isLocked ? 'Keep selected tool active' : 'Switch to select after drawing'}
-          className={`relative p-2 rounded-xl transition-colors flex items-center justify-center shrink-0 cursor-pointer ${
+          aria-label={isLocked ? 'Unlock tool (switch to selection after drawing)' : 'Lock tool (keep active)'}
+          aria-pressed={isLocked}
+          className={`relative p-2 rounded-xl transition-[color,background-color,border-color,transform] duration-150 ease-out flex items-center justify-center shrink-0 cursor-pointer focus-visible:ring-2 focus-visible:ring-[#6965db] focus-visible:outline-none motion-safe:active:scale-[0.96] ${
             isLocked
               ? isDarkMode ? 'bg-white/15 text-white' : 'bg-neutral-900 text-white'
               : isDarkMode
@@ -98,7 +100,9 @@ export default function Toolbar({
                 }
               }}
               title={`${item.label} (${item.shortcut})`}
-              className={`relative p-2 rounded-xl transition-colors group flex items-center justify-center shrink-0 cursor-pointer ${
+              aria-label={`${item.label} (${item.shortcut})`}
+              aria-pressed={isActive}
+              className={`relative p-2 rounded-xl transition-[color,background-color,border-color,transform] duration-150 ease-out group flex items-center justify-center shrink-0 cursor-pointer focus-visible:ring-2 focus-visible:ring-[#6965db] focus-visible:outline-none motion-safe:active:scale-[0.96] ${
                 isActive
                   ? isDarkMode
                     ? 'bg-white/15 text-white'
@@ -137,7 +141,9 @@ export default function Toolbar({
             <button
               onClick={onToggleProperties}
               title={isPropertiesOpen ? 'Hide styles' : 'Show styles & colors'}
-              className={`relative p-2 rounded-xl transition-colors flex items-center justify-center shrink-0 cursor-pointer ${
+              aria-label={isPropertiesOpen ? 'Hide styling panel' : 'Show styling panel'}
+              aria-expanded={isPropertiesOpen}
+              className={`relative p-2 rounded-xl transition-[color,background-color,border-color,transform] duration-150 ease-out flex items-center justify-center shrink-0 cursor-pointer focus-visible:ring-2 focus-visible:ring-[#6965db] focus-visible:outline-none motion-safe:active:scale-[0.96] ${
                 isPropertiesOpen
                   ? isDarkMode ? 'bg-white/15 text-white' : 'bg-neutral-900 text-white'
                   : isDarkMode
@@ -161,7 +167,8 @@ export default function Toolbar({
             <button
               onClick={onOpenCollab}
               title={isCollabActive ? `Live Session (${connectedPeerCount + 1} users)` : 'Live Collaboration'}
-              className={`relative px-2.5 py-1.5 rounded-xl transition-colors flex items-center gap-1.5 shrink-0 text-xs font-normal cursor-pointer ${
+              aria-label={isCollabActive ? `Live session (${connectedPeerCount + 1} users)` : 'Live collaboration'}
+              className={`relative px-2.5 py-1.5 rounded-xl transition-[color,background-color,border-color,transform] duration-150 ease-out flex items-center gap-1.5 shrink-0 text-xs font-normal cursor-pointer focus-visible:ring-2 focus-visible:ring-[#6965db] focus-visible:outline-none motion-safe:active:scale-[0.96] ${
                 isCollabActive
                   ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                   : isDarkMode

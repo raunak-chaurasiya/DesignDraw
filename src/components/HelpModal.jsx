@@ -38,6 +38,9 @@ export default function HelpModal({ isOpen, onClose, isDarkMode = true }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="help-modal-title"
         className={`w-full max-w-md max-h-[92vh] flex flex-col rounded-2xl border p-5 shadow-xl transition-colors ${
           isDarkMode
             ? 'bg-[#18181c] border-white/10 text-neutral-100 shadow-black/60'
@@ -48,12 +51,13 @@ export default function HelpModal({ isOpen, onClose, isDarkMode = true }) {
           isDarkMode ? 'border-white/10' : 'border-neutral-200'
         }`}>
           <div>
-            <h2 className="text-base font-medium">Shortcuts</h2>
-            <p className="text-xs text-neutral-400 mt-0.5">Quick hotkeys for tools and canvas actions</p>
+            <h2 id="help-modal-title" className="text-base font-medium">Shortcuts</h2>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">Quick hotkeys for tools and canvas actions</p>
           </div>
           <button
             onClick={onClose}
-            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+            aria-label="Close keyboard shortcuts"
+            className={`p-1.5 rounded-lg transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[#6965db] focus-visible:outline-none ${
               isDarkMode ? 'text-neutral-400 hover:text-white hover:bg-white/10' : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100'
             }`}
           >
@@ -61,7 +65,7 @@ export default function HelpModal({ isOpen, onClose, isDarkMode = true }) {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs max-h-[58vh] sm:max-h-[380px] overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs max-h-[58vh] sm:max-h-[380px] overflow-y-auto overscroll-contain pr-1" style={{ scrollbarWidth: 'thin' }}>
           {SHORTCUTS.map((sc, i) => (
             <div
               key={i}
