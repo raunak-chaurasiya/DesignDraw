@@ -4,14 +4,21 @@
 
 **A lightweight, zero-latency virtual whiteboard & diagramming web app with an authentic hand-drawn feel.**
 
+
 [![Live Demo](https://img.shields.io/badge/Demo-design--draw.vercel.app-6965db?style=flat-square)](https://design-draw.vercel.app/)
 [![React 19](https://img.shields.io/badge/React-19-61dafb?style=flat-square&logo=react)](https://react.dev/)
 [![Tailwind CSS v4](https://img.shields.io/badge/Tailwind-v4-38bdf8?style=flat-square&logo=tailwindcss)](https://tailwindcss.com/)
 [![Vite](https://img.shields.io/badge/Vite-8-646cff?style=flat-square&logo=vite)](https://vitejs.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 
+<br />
+
 [Live Demo](https://design-draw.vercel.app/) · [Report Bug](https://github.com/raunak-chaurasiya/DesignDraw/issues) · [Request Feature](https://github.com/raunak-chaurasiya/DesignDraw/issues)
 
+<br />
+<br />
+<div align="center">
+<img src="public/DesignDraw_img.jpeg" alt="DesignDraw Whiteboard & Diagram Editor Screenshot" width="850" style="border-radius: 12px; max-width: 100%; height: auto;" />
 </div>
 
 ---
