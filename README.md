@@ -1,7 +1,4 @@
-# 🎨 DesignDraw
-
-<div align="center">
-
+# DesignDraw
 **A lightweight, zero-latency virtual whiteboard & diagramming web app with an authentic hand-drawn feel.**
 
 
